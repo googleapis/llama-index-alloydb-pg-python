@@ -53,10 +53,10 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
     table_name: str
     schema_name: str
     id_column: str
-    content_column: str
+    text_column: str
     embedding_column: str
     metadata_json_column: str
-    custom_metadata_columns: List[str]
+    metadata_columns: List[str]
     ref_doc_id_column: str
     node_column: str
     __create_key = object()
@@ -68,10 +68,10 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         table_name: str,
         schema_name: str = "public",
         id_column: str = "node_id",
-        content_column: str = "text",
+        text_column: str = "text",
         embedding_column: str = "embedding",
         metadata_json_column: Optional[str] = "li_metadata",
-        custom_metadata_columns: List[str] = [],
+        metadata_columns: List[str] = [],
         ref_doc_id_column: Optional[str] = "ref_doc_id",
         node_column: Optional[str] = "node",
     ):
@@ -82,10 +82,10 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             table_name (str): Name of the existing table or the table to be created.
             schema_name (str, optional): Name of the database schema. Defaults to "public".
             id_column (str): Column that represents if of a Node. Defaults to "node_id".
-            content_column (str): Column that represent text content of a Node. Defaults to "text".
+            text_column (str): Column that represent text content of a Node. Defaults to "text".
             embedding_column (str): Column for embedding vectors. The embedding is generated from the content of Node. Defaults to "embedding".
             metadata_json_column (str): Column to store metadata as JSON. Defaults to "li_metadata".
-            custom_metadata_columns (List[str]): Column(s) that represent extracted metadata keys in their own columns.
+            metadata_columns (List[str]): Column(s) that represent extracted metadata keys in their own columns.
             ref_doc_id_column (str): Column that represents id of a node's parent document. Defaults to "ref_doc_id".
             node_column (str): Column that represents the whole JSON node. Defaults to "node".
 
@@ -103,10 +103,10 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             table_name=table_name,
             schema_name=schema_name,
             id_column=id_column,
-            content_column=content_column,
+            text_column=text_column,
             embedding_column=embedding_column,
             metadata_json_column=metadata_json_column,
-            custom_metadata_columns=custom_metadata_columns,
+            metadata_columns=metadata_columns,
             ref_doc_id_column=ref_doc_id_column,
             node_column=node_column,
         )
@@ -118,10 +118,10 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         table_name: str,
         schema_name: str = "public",
         id_column: str = "node_id",
-        content_column: str = "text",
+        text_column: str = "text",
         embedding_column: str = "embedding",
         metadata_json_column: Optional[str] = "li_metadata",
-        custom_metadata_columns: List[str] = [],
+        metadata_columns: List[str] = [],
         ref_doc_id_column: Optional[str] = "ref_doc_id",
         node_column: Optional[str] = "node",
         perform_validation: bool = True,  # TODO: For testing only, remove after engine::init implementation
@@ -133,10 +133,10 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             table_name (str): Name of the existing table or the table to be created.
             schema_name (str, optional): Name of the database schema. Defaults to "public".
             id_column (str): Column that represents if of a Node. Defaults to "node_id".
-            content_column (str): Column that represent text content of a Node. Defaults to "text".
+            text_column (str): Column that represent text content of a Node. Defaults to "text".
             embedding_column (str): Column for embedding vectors. The embedding is generated from the content of Node. Defaults to "embedding".
             metadata_json_column (str): Column to store metadata as JSON. Defaults to "li_metadata".
-            custom_metadata_columns (List[str]): Column(s) that represent extracted metadata keys in their own columns.
+            metadata_columns (List[str]): Column(s) that represent extracted metadata keys in their own columns.
             ref_doc_id_column (str): Column that represents id of a node's parent document. Defaults to "ref_doc_id".
             node_column (str): Column that represents the whole JSON node. Defaults to "node".
 
@@ -160,12 +160,12 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             # Check columns
             if id_column not in columns:
                 raise ValueError(f"Id column, {id_column}, does not exist.")
-            if content_column not in columns:
-                raise ValueError(f"Content column, {content_column}, does not exist.")
-            content_type = columns[content_column]
+            if text_column not in columns:
+                raise ValueError(f"Content column, {text_column}, does not exist.")
+            content_type = columns[text_column]
             if content_type != "text" and "char" not in content_type:
                 raise ValueError(
-                    f"Content column, {content_column}, is type, {content_type}. It must be a type of character string."
+                    f"Content column, {text_column}, is type, {content_type}. It must be a type of character string."
                 )
             if embedding_column not in columns:
                 raise ValueError(
@@ -186,7 +186,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
                     f"Metadata column, {metadata_json_column}, does not exist."
                 )
             # If using metadata_columns check to make sure column exists
-            for column in custom_metadata_columns:
+            for column in metadata_columns:
                 if column not in columns:
                     raise ValueError(f"Metadata column, {column}, does not exist.")
 
@@ -196,10 +196,10 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             table_name,
             schema_name=schema_name,
             id_column=id_column,
-            content_column=content_column,
+            text_column=text_column,
             embedding_column=embedding_column,
             metadata_json_column=metadata_json_column,
-            custom_metadata_columns=custom_metadata_columns,
+            metadata_columns=metadata_columns,
             ref_doc_id_column=ref_doc_id_column,
             node_column=node_column,
         )
@@ -227,11 +227,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         filters: Optional[MetadataFilters] = None,
         **delete_kwargs: Any,
     ) -> None:
-        """Asynchronously delete a set of nodes from the table matching the provided nodes and filters.
-
-        Raises:
-            Exception: If called without any node ids or filters.
-        """
+        """Asynchronously delete a set of nodes from the table matching the provided nodes and filters."""
         pass
 
     async def aclear(self) -> None:
@@ -243,13 +239,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         node_ids: Optional[List[str]] = None,
         filters: Optional[MetadataFilters] = None,
     ) -> List[BaseNode]:
-        """Asynchronously get nodes from the table matching the provided nodes and filters.
-
-        Raises:
-            Exception: If called without any node ids or filters.
-        """
-        if node_ids is None and filters is None:
-            raise ValueError(f"Either node_ids or filters must be provided.")
+        """Asynchronously get nodes from the table matching the provided nodes and filters."""
         pass
 
     async def aquery(
