@@ -22,14 +22,13 @@ import uuid
 from typing import Any, Callable, Iterable, List, Optional, Sequence, Tuple, Type
 
 import numpy as np
-import requests
 from google.cloud import storage  # type: ignore
 from llama_index.core.schema import BaseNode, MetadataMode, TextNode
 from llama_index.core.vector_stores.types import (
     BasePydanticVectorStore,
     FilterOperator,
-    MetadataFilters,
     MetadataFilter,
+    MetadataFilters,
     VectorStoreQuery,
     VectorStoreQueryMode,
     VectorStoreQueryResult,
@@ -40,6 +39,7 @@ from llama_index.core.vector_stores.utils import (
 )
 from sqlalchemy import RowMapping, text
 from sqlalchemy.ext.asyncio import AsyncEngine
+
 from .engine import AlloyDBEngine
 
 
