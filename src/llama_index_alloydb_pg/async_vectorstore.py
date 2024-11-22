@@ -23,8 +23,8 @@ from typing import Any, Callable, Iterable, List, Optional, Sequence, Tuple, Typ
 
 import numpy as np
 from google.cloud import storage  # type: ignore
-from llama_index.core.schema import BaseNode, MetadataMode, TextNode
-from llama_index.core.vector_stores.types import (
+from llama_index.core.schema import BaseNode, MetadataMode, TextNode  # type: ignore
+from llama_index.core.vector_stores.types import (  # type: ignore
     BasePydanticVectorStore,
     FilterOperator,
     MetadataFilter,
@@ -45,16 +45,6 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
     stores_text: bool = True
     is_embedding_query: bool = True
 
-    engine: AsyncEngine
-    table_name: str
-    schema_name: str
-    id_column: str
-    text_column: str
-    embedding_column: str
-    metadata_json_column: str
-    metadata_columns: List[str]
-    ref_doc_id_column: str
-    node_column: str
     __create_key = object()
 
     def __init__(
@@ -94,6 +84,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
                 "Only create class through 'create' or 'create_sync' methods!"
             )
 
+        # Delegate to Pydantic's __init__
         super().__init__(
             engine=engine,
             table_name=table_name,
