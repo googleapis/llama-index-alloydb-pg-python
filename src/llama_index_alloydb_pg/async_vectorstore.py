@@ -47,6 +47,17 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
 
     __create_key = object()
 
+    _engine: AsyncEngine
+    table_name: str
+    schema_name: str
+    id_column: str
+    text_column: str
+    embedding_column: str
+    metadata_json_column: str
+    metadata_columns: List[str]
+    ref_doc_id_column: str
+    node_column: str
+
     def __init__(
         self,
         key: object,
@@ -86,7 +97,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
 
         # Delegate to Pydantic's __init__
         super().__init__(
-            engine=engine,
+            _engine=engine,
             table_name=table_name,
             schema_name=schema_name,
             id_column=id_column,
