@@ -32,7 +32,11 @@ from typing import (
 import aiohttp
 import google.auth  # type: ignore
 import google.auth.transport.requests  # type: ignore
-from google.cloud.alloydb.connector import AsyncConnector, IPTypes, RefreshStrategy
+from google.cloud.alloydb.connector import (  # type: ignore
+    AsyncConnector,
+    IPTypes,
+    RefreshStrategy,
+)
 from sqlalchemy import MetaData, RowMapping, Table, text
 from sqlalchemy.engine import URL
 from sqlalchemy.exc import InvalidRequestError

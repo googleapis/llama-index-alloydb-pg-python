@@ -18,20 +18,20 @@ from typing import List, Sequence
 
 import pytest
 import pytest_asyncio
-from llama_index.core.schema import TextNode
-from llama_index.core.vector_stores.types import VectorStoreQuery
+from llama_index.core.schema import TextNode  # type: ignore
+from llama_index.core.vector_stores.types import VectorStoreQuery  # type: ignore
 from sqlalchemy import text
 from sqlalchemy.engine.row import RowMapping
 
-from llama_index_alloydb_pg import AlloyDBEngine
-from llama_index_alloydb_pg.async_vectorstore import AsyncAlloyDBVectorStore
+from llama_index_alloydb_pg import AlloyDBEngine  # type: ignore
+from llama_index_alloydb_pg.async_vectorstore import (
+    AsyncAlloyDBVectorStore,  # type: ignore
+)
 
 DEFAULT_TABLE = "test_table" + str(uuid.uuid4())
 
 texts = ["foo", "bar", "baz"]
-metadata = [{"page": str(i), "source": "google.com"} for i in range(len(texts))]
-
-nodes = [TextNode(text=texts[i], metadata=metadata[i]) for i in range(len(texts))]
+nodes = [TextNode(text=texts[i]) for i in range(len(texts))]
 sync_method_exception_str = "Sync methods are not implemented for AsyncAlloyDBVectorStore. Use AlloyDBVectorStore interface instead."
 
 

@@ -19,14 +19,14 @@ from typing import Sequence
 import asyncpg  # type: ignore
 import pytest
 import pytest_asyncio
-from google.cloud.alloydb.connector import AsyncConnector, IPTypes
+from google.cloud.alloydb.connector import AsyncConnector, IPTypes  # type: ignore
 from sqlalchemy import VARCHAR, text
 from sqlalchemy.engine import URL
 from sqlalchemy.engine.row import RowMapping
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
-from llama_index_alloydb_pg import AlloyDBEngine, Column
+from llama_index_alloydb_pg import AlloyDBEngine, Column  # type: ignore
 
 
 def get_env_var(key: str, desc: str) -> str:
