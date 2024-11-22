@@ -33,10 +33,6 @@ from llama_index.core.vector_stores.types import (
     VectorStoreQueryMode,
     VectorStoreQueryResult,
 )
-from llama_index.core.vector_stores.utils import (
-    metadata_dict_to_node,
-    node_to_metadata_dict,
-)
 from sqlalchemy import RowMapping, text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -215,11 +211,13 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
 
     async def async_add(self, nodes: Sequence[BaseNode], **kwargs: Any) -> List[str]:
         """Asynchronously add nodes to the table."""
-        pass
+        # TODO: complete implementation
+        return []
 
     async def adelete(self, ref_doc_id: str, **delete_kwargs: Any) -> None:
         """Asynchronously delete nodes belonging to provided parent document from the table."""
-        pass
+        # TODO: complete implementation
+        return
 
     async def adelete_nodes(
         self,
@@ -228,11 +226,13 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         **delete_kwargs: Any,
     ) -> None:
         """Asynchronously delete a set of nodes from the table matching the provided nodes and filters."""
-        pass
+        # TODO: complete implementation
+        return
 
     async def aclear(self) -> None:
         """Asynchronously delete all nodes from the table."""
-        pass
+        # TODO: complete implementation
+        return
 
     async def aget_nodes(
         self,
@@ -240,13 +240,14 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         filters: Optional[MetadataFilters] = None,
     ) -> List[BaseNode]:
         """Asynchronously get nodes from the table matching the provided nodes and filters."""
-        pass
+        return []
 
     async def aquery(
         self, query: VectorStoreQuery, **kwargs: Any
     ) -> VectorStoreQueryResult:
         """Asynchronously query vector store."""
-        pass
+        # TODO: complete implementation
+        return VectorStoreQueryResult()
 
     def add(self, nodes: Sequence[BaseNode], **add_kwargs: Any) -> List[str]:
         raise NotImplementedError(
