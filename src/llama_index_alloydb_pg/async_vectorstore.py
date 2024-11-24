@@ -22,7 +22,6 @@ import uuid
 from typing import Any, Callable, Iterable, List, Optional, Sequence, Tuple, Type
 
 import numpy as np
-from google.cloud import storage  # type: ignore
 from llama_index.core.schema import BaseNode, MetadataMode, TextNode  # type: ignore
 from llama_index.core.vector_stores.types import (  # type: ignore
     BasePydanticVectorStore,
@@ -48,15 +47,15 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
     __create_key = object()
 
     _engine: AsyncEngine
-    table_name: str
-    schema_name: str
-    id_column: str
-    text_column: str
-    embedding_column: str
-    metadata_json_column: str
-    metadata_columns: List[str]
-    ref_doc_id_column: str
-    node_column: str
+    _table_name: str
+    _schema_name: str
+    _id_column: str
+    _text_column: str
+    _embedding_column: str
+    _metadata_json_column: str
+    _metadata_columns: List[str]
+    _ref_doc_id_column: str
+    _node_column: str
 
     def __init__(
         self,
@@ -67,17 +66,19 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         id_column: str = "node_id",
         text_column: str = "text",
         embedding_column: str = "embedding",
-        metadata_json_column: Optional[str] = "li_metadata",
+        metadata_json_column: str = "li_metadata",
         metadata_columns: List[str] = [],
-        ref_doc_id_column: Optional[str] = "ref_doc_id",
-        node_column: Optional[str] = "node",
+        ref_doc_id_column: str = "ref_doc_id",
+        node_column: str = "node",
+        stores_text: bool = True,
+        is_embedding_query: bool = True,
     ):
         """AsyncAlloyDBVectorStore constructor.
         Args:
             key (object): Prevent direct constructor usage.
             engine (AsyncEngine): Connection pool engine for managing connections to AlloyDB database.
             table_name (str): Name of the existing table or the table to be created.
-            schema_name (str, optional): Name of the database schema. Defaults to "public".
+            schema_name (str): Name of the database schema. Defaults to "public".
             id_column (str): Column that represents if of a Node. Defaults to "node_id".
             text_column (str): Column that represent text content of a Node. Defaults to "text".
             embedding_column (str): Column for embedding vectors. The embedding is generated from the content of Node. Defaults to "embedding".
@@ -85,6 +86,8 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             metadata_columns (List[str]): Column(s) that represent extracted metadata keys in their own columns.
             ref_doc_id_column (str): Column that represents id of a node's parent document. Defaults to "ref_doc_id".
             node_column (str): Column that represents the whole JSON node. Defaults to "node".
+            stores_text (bool): Whether the table stores text. Defaults to "True".
+            is_embedding_query (bool): Whether the table query can have embeddings. Defaults to "True".
 
 
         Raises:
@@ -96,18 +99,17 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             )
 
         # Delegate to Pydantic's __init__
-        super().__init__(
-            _engine=engine,
-            table_name=table_name,
-            schema_name=schema_name,
-            id_column=id_column,
-            text_column=text_column,
-            embedding_column=embedding_column,
-            metadata_json_column=metadata_json_column,
-            metadata_columns=metadata_columns,
-            ref_doc_id_column=ref_doc_id_column,
-            node_column=node_column,
-        )
+        super().__init__(stores_text=stores_text, is_embedding_query=is_embedding_query)
+        self._engine = engine
+        self._table_name = table_name
+        self._schema_name = schema_name
+        self._id_column = id_column
+        self._text_column = text_column
+        self._embedding_column = embedding_column
+        self._metadata_json_column = metadata_json_column
+        self._metadata_columns = metadata_columns
+        self._ref_doc_id_column = ref_doc_id_column
+        self._node_column = node_column
 
     @classmethod
     async def create(
@@ -118,10 +120,12 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         id_column: str = "node_id",
         text_column: str = "text",
         embedding_column: str = "embedding",
-        metadata_json_column: Optional[str] = "li_metadata",
+        metadata_json_column: str = "li_metadata",
         metadata_columns: List[str] = [],
-        ref_doc_id_column: Optional[str] = "ref_doc_id",
-        node_column: Optional[str] = "node",
+        ref_doc_id_column: str = "ref_doc_id",
+        node_column: str = "node",
+        stores_text: bool = True,
+        is_embedding_query: bool = True,
         perform_validation: bool = True,  # TODO: For testing only, remove after engine::init implementation
     ) -> AsyncAlloyDBVectorStore:
         """Create an AsyncAlloyDBVectorStore instance and validates the table schema.
@@ -129,7 +133,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         Args:
             engine (AlloyDBEngine): Alloy DB Engine for managing connections to AlloyDB database.
             table_name (str): Name of the existing table or the table to be created.
-            schema_name (str, optional): Name of the database schema. Defaults to "public".
+            schema_name (str): Name of the database schema. Defaults to "public".
             id_column (str): Column that represents if of a Node. Defaults to "node_id".
             text_column (str): Column that represent text content of a Node. Defaults to "text".
             embedding_column (str): Column for embedding vectors. The embedding is generated from the content of Node. Defaults to "embedding".
@@ -137,6 +141,8 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             metadata_columns (List[str]): Column(s) that represent extracted metadata keys in their own columns.
             ref_doc_id_column (str): Column that represents id of a node's parent document. Defaults to "ref_doc_id".
             node_column (str): Column that represents the whole JSON node. Defaults to "node".
+            stores_text (bool): Whether the table stores text. Defaults to "True".
+            is_embedding_query (bool): Whether the table query can have embeddings. Defaults to "True".
 
         Raises:
             Exception: If table does not exist or follow the provided structure.
@@ -200,6 +206,8 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             metadata_columns=metadata_columns,
             ref_doc_id_column=ref_doc_id_column,
             node_column=node_column,
+            stores_text=stores_text,
+            is_embedding_query=is_embedding_query,
         )
 
     @classmethod
