@@ -22,8 +22,8 @@ import uuid
 from typing import Any, Callable, Iterable, List, Optional, Sequence, Tuple, Type
 
 import numpy as np
-from llama_index.core.schema import BaseNode, MetadataMode, TextNode  # type: ignore
-from llama_index.core.vector_stores.types import (  # type: ignore
+from llama_index.core.schema import BaseNode, MetadataMode, TextNode
+from llama_index.core.vector_stores.types import (
     BasePydanticVectorStore,
     FilterOperator,
     MetadataFilter,

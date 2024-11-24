@@ -19,14 +19,14 @@ from typing import Sequence
 import asyncpg  # type: ignore
 import pytest
 import pytest_asyncio
-from google.cloud.alloydb.connector import AsyncConnector, IPTypes  # type: ignore
+from google.cloud.alloydb.connector import AsyncConnector, IPTypes
 from sqlalchemy import VARCHAR, text
 from sqlalchemy.engine import URL
 from sqlalchemy.engine.row import RowMapping
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
-from llama_index_alloydb_pg import AlloyDBEngine, Column  # type: ignore
+from llama_index_alloydb_pg import AlloyDBEngine, Column
 
 DEFAULT_DS_TABLE = "document_store_" + str(uuid.uuid4())
 DEFAULT_DS_TABLE_SYNC = "document_store_" + str(uuid.uuid4())

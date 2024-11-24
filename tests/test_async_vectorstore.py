@@ -19,14 +19,12 @@ from typing import List, Sequence
 import pytest
 import pytest_asyncio
 from llama_index.core.schema import TextNode  # type: ignore
-from llama_index.core.vector_stores.types import VectorStoreQuery  # type: ignore
+from llama_index.core.vector_stores.types import VectorStoreQuery
 from sqlalchemy import text
 from sqlalchemy.engine.row import RowMapping
 
-from llama_index_alloydb_pg import AlloyDBEngine  # type: ignore
-from llama_index_alloydb_pg.async_vectorstore import (
-    AsyncAlloyDBVectorStore,  # type: ignore
-)
+from llama_index_alloydb_pg import AlloyDBEngine
+from llama_index_alloydb_pg.async_vectorstore import AsyncAlloyDBVectorStore
 
 DEFAULT_TABLE = "test_table" + str(uuid.uuid4())
 
