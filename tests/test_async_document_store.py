@@ -90,7 +90,7 @@ class TestAsyncAlloyDBDocumentStore:
             region=db_region,
             database=db_name,
             user=user,
-            password=password
+            password=password,
         )
 
         yield async_engine
