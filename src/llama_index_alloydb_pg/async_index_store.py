@@ -25,7 +25,7 @@ from llama_index.core.storage.index_store.utils import (
     json_to_index_struct,
 )
 from llama_index.core.storage.kvstore.types import DEFAULT_BATCH_SIZE
-from sqlalchemy import text
+from sqlalchemy import RowMapping, text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from .engine import AlloyDBEngine
@@ -42,7 +42,7 @@ class AsyncAlloyDBIndexStore(BaseIndexStore):
         engine: AsyncEngine,
         table_name: str,
         schema_name: str = "public",
-        batch_size: str = DEFAULT_BATCH_SIZE,
+        batch_size: int = DEFAULT_BATCH_SIZE,
     ):
         """AsyncAlloyDBIndexStore constructor.
 
@@ -71,7 +71,7 @@ class AsyncAlloyDBIndexStore(BaseIndexStore):
         engine: AlloyDBEngine,
         table_name: str,
         schema_name: str = "public",
-        batch_size: str = DEFAULT_BATCH_SIZE,
+        batch_size: int = DEFAULT_BATCH_SIZE,
     ) -> AsyncAlloyDBIndexStore:
         """Create a new AsyncAlloyDBIndexStore instance.
 
@@ -121,7 +121,7 @@ class AsyncAlloyDBIndexStore(BaseIndexStore):
 
     async def _get_all_from_table(
         self,
-    ) -> Optional[Dict[str, str, dict]]:
+    ) -> Optional[Sequence[RowMapping]]:
         """Gets all the rows from the index store.
 
         Returns:
@@ -232,10 +232,9 @@ class AsyncAlloyDBIndexStore(BaseIndexStore):
 
     async def aindex_structs(self) -> List[IndexStruct]:
         index_list = await self._get_all_from_table()
-        return {
-            index["index_id"]: json_to_index_struct(index["index_data"])
-            for index in index_list
-        }
+        if index_list:
+            return [json_to_index_struct(index["index_data"]) for index in index_list]
+        return []
 
     async def aadd_index_struct(self, index_struct: IndexStruct) -> None:
         """Add an index struct.
@@ -263,7 +262,11 @@ class AsyncAlloyDBIndexStore(BaseIndexStore):
             json = await self._get_from_table(index_id=struct_id)
             if json is None:
                 return None
-            return json_to_index_struct(json.get("index_data"))
+            index_data = json.get("index_data")
+
+            if index_data:
+                return json_to_index_struct(index_data)
+            return None
 
     def index_structs(self) -> List[IndexStruct]:
         raise NotImplementedError(
