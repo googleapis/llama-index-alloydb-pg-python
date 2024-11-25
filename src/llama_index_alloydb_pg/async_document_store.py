@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 import json
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from llama_index.core.constants import DATA_KEY
 from llama_index.core.schema import BaseNode
@@ -30,7 +30,7 @@ from .engine import AlloyDBEngine
 
 
 class AsyncAlloyDBDocumentStore(BaseDocumentStore):
-    """Document Table stored in an AlloyDB for PostgreSQL database."""
+    """Document Store Table stored in an AlloyDB for PostgreSQL database."""
 
     __create_key = object()
 
@@ -40,7 +40,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         engine: AsyncEngine,
         table_name: str,
         schema_name: str = "public",
-        batch_size: str = DEFAULT_BATCH_SIZE,
+        batch_size: str = int(DEFAULT_BATCH_SIZE),
     ):
         """AsyncAlloyDBDocumentStore constructor.
 
@@ -69,7 +69,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         engine: AlloyDBEngine,
         table_name: str,
         schema_name: str = "public",
-        batch_size: str = DEFAULT_BATCH_SIZE,
+        batch_size: str = int(DEFAULT_BATCH_SIZE),
     ) -> AsyncAlloyDBDocumentStore:
         """Create a new AsyncAlloyDBDocumentStore instance.
 
@@ -120,7 +120,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
 
     async def _get_all_from_table(
         self,
-    ) -> Optional[Dict[str, str, str, dict]]:
+    ) -> Optional[List[Dict[str, str, str, dict]]]:
         """Gets all the rows from the document store.
 
         Returns:
@@ -160,7 +160,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
     async def _put_all_to_table(
         self,
         rows: List[Tuple[str, str, str, dict]],
-        batch_size: int = DEFAULT_BATCH_SIZE,
+        batch_size: int = int(DEFAULT_BATCH_SIZE),
     ) -> None:
         """Puts a list of rows into the document table.
 
@@ -203,7 +203,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         id: str,
         doc_hash: str,
         ref_doc_id: str,
-        node_data: dict,
+        node_data: Dict[str, Any],
     ) -> None:
         """Puts a row into the document table.
 
@@ -236,7 +236,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         await self._put_all_doc_hashes_to_table([(id, doc_hash)])
 
     async def _put_all_doc_hashes_to_table(
-        self, rows: List[Tuple[str, str]], batch_size: int = DEFAULT_BATCH_SIZE
+        self, rows: List[Tuple[str, str]], batch_size: int = int(DEFAULT_BATCH_SIZE)
     ) -> None:
         """Puts a multiple rows of node ids with their doc_hash into the document table.
         Incase a row with the id already exists, it updates the row with the new doc_hash.
@@ -286,7 +286,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
 
     async def _create_node_rows(
         self, nodes: Sequence[BaseNode], allow_update: bool, store_text: bool
-    ) -> List[Tuple[str, str, str, dict]]:
+    ) -> List[Tuple[str, str, str, Dict[str, Any]]]:
         """
         This method processes a sequence of document nodes asynchronously and prepares
         a list of rows to be inserted into the table.This method
@@ -300,10 +300,10 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         Returns:
             List[
               Tuple[
-                str,    # Node or document Id
-                str,    # Doc_hash
-                str,    # Ref_doc_id of the node
-                dict]   # Data from the base node
+                str,              # Node or document Id
+                str,              # Doc_hash
+                str,              # Ref_doc_id of the node
+                Dict[str, Any]]   # Data from the base node
               ]
 
         Raises:
@@ -339,7 +339,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         self,
         docs: Sequence[BaseNode],
         allow_update: bool = True,
-        batch_size: Optional[int] = None,
+        batch_size: Optional[int] = int(DEFAULT_BATCH_SIZE),
         store_text: bool = True,
     ) -> None:
         """Adds a document to the store.
@@ -372,7 +372,10 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         """
         list_docs = await self._get_all_from_table()
 
-        return {doc["id"]: doc["node_data"] for doc in list_docs}
+        if list_docs is None:
+            return None
+
+        return {doc["id"]: json_to_doc(doc["node_data"]) for doc in list_docs}
 
     async def aget_document(
         self, doc_id: str, raise_error: bool = True
@@ -487,7 +490,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
 
     async def _get_ref_doc_child_node_ids(
         self, ref_doc_id: str
-    ) -> Optional[Dict[str, List]]:
+    ) -> Optional[Dict[str, List[str]]]:
         """Helper function to find the child node mappings of a ref_doc_id.
 
         Returns:
@@ -513,7 +516,8 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             None
 
         Raises:
-            ValueError: If a node is not found and `raise_error` is set to True."""
+            ValueError: If a node is not found and `raise_error` is set to True.
+        """
 
         deleted_doc = await self._delete_from_table(doc_id)
         if not deleted_doc and raise_error:
@@ -631,7 +635,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         self,
         docs: Sequence[BaseNode],
         allow_update: bool = True,
-        batch_size: int = DEFAULT_BATCH_SIZE,
+        batch_size: int = int(DEFAULT_BATCH_SIZE),
         store_text: bool = True,
     ) -> None:
         raise NotImplementedError(
