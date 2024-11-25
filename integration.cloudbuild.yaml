@@ -81,5 +81,5 @@ substitutions:
 
 options:
   pool:
-    name: "projects/llamaindex-alloydb-testing/locations/us-central1/workerPools/my-pool"
+    name: "projects/${PROJECT_ID}/locations/${_REGION}/workerPools/my-pool"
   dynamicSubstitutions: true
