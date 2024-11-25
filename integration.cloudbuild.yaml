@@ -83,3 +83,4 @@ options:
   pool:
     name: "projects/${PROJECT_ID}/locations/${_REGION}/workerPools/my-pool"
   dynamicSubstitutions: true
+  logging: CLOUD_LOGGING_ONLY
