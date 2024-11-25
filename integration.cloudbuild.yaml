@@ -29,7 +29,7 @@ steps:
     args:
       - -c
       - |
-        wget -O /workspace/alloydb-auth-proxy https://storage.googleapis.com/alloydb-auth-proxy/v1.11.0/alloydb-auth-proxy.linux.386
+        wget -O /workspace/alloydb-auth-proxy https://storage.googleapis.com/alloydb-auth-proxy/vlatest.11.0/alloydb-auth-proxy.linux.386
         chmod +x /workspace/alloydb-auth-proxy
 
   - id: Run integration tests
@@ -60,17 +60,17 @@ steps:
 
 availableSecrets:
   secretManager:
-    - versionName: projects/$PROJECT_ID/secrets/DB_USER/versions/1
+    - versionName: projects/$PROJECT_ID/secrets/DB_USER/versions/latest
       env: "DB_USER"
-    - versionName: projects/$PROJECT_ID/secrets/DB_PASSWORD/versions/1
+    - versionName: projects/$PROJECT_ID/secrets/DB_PASSWORD/versions/latest
       env: "DB_PASSWORD"
-    - versionName: projects/$PROJECT_ID/secrets/OMNI_HOST/versions/1
+    - versionName: projects/$PROJECT_ID/secrets/OMNI_HOST/versions/latest
       env: "OMNI_HOST"
-    - versionName: projects/$PROJECT_ID/secrets/OMNI_USER/versions/1
+    - versionName: projects/$PROJECT_ID/secrets/OMNI_USER/versions/latest
       env: "OMNI_USER"
-    - versionName: projects/$PROJECT_ID/secrets/OMNI_PASSWORD/versions/1
+    - versionName: projects/$PROJECT_ID/secrets/OMNI_PASSWORD/versions/latest
       env: "OMNI_PASSWORD"
-    - versionName: projects/$PROJECT_ID/secrets/service_account_email/versions/1
+    - versionName: projects/$PROJECT_ID/secrets/service_account_email/versions/latest
       env: "IAM_ACCOUNT"
 
 substitutions:
