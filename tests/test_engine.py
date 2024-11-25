@@ -28,6 +28,9 @@ from sqlalchemy.pool import NullPool
 
 from llama_index_alloydb_pg import AlloyDBEngine, Column
 
+DEFAULT_DS_TABLE = "document_store_" + str(uuid.uuid4())
+DEFAULT_DS_TABLE_SYNC = "document_store_" + str(uuid.uuid4())
+
 
 def get_env_var(key: str, desc: str) -> str:
     v = os.environ.get(key)
@@ -107,6 +110,7 @@ class TestEngineAsync:
             database=db_name,
         )
         yield engine
+        await aexecute(engine, f'DROP TABLE "{DEFAULT_DS_TABLE}"')
         await engine.close()
 
     async def test_password(
@@ -231,6 +235,21 @@ class TestEngineAsync:
         await aexecute(engine, "SELECT 1")
         await engine.close()
 
+    async def test_init_document_store(self, engine):
+        await engine.ainit_doc_store_table(
+            table_name=DEFAULT_DS_TABLE, schema_name="public", overwrite_existing=True
+        )
+        stmt = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{DEFAULT_DS_TABLE}';"
+        results = await afetch(engine, stmt)
+        expected = [
+            {"column_name": "id", "data_type": "character varying"},
+            {"column_name": "doc_hash", "data_type": "character varying"},
+            {"column_name": "ref_doc_id", "data_type": "character varying"},
+            {"column_name": "node_data", "data_type": "jsonb"},
+        ]
+        for row in results:
+            assert row in expected
+
 
 @pytest.mark.asyncio
 class TestEngineSync:
@@ -280,6 +299,7 @@ class TestEngineSync:
             database=db_name,
         )
         yield engine
+        await aexecute(engine, f'DROP TABLE "{DEFAULT_DS_TABLE_SYNC}"')
         await engine.close()
 
     async def test_password(
@@ -335,3 +355,20 @@ class TestEngineSync:
         assert engine
         await aexecute(engine, "SELECT 1")
         await engine.close()
+
+    async def test_init_document_store(self, engine):
+        engine.init_doc_store_table(
+            table_name=DEFAULT_DS_TABLE_SYNC,
+            schema_name="public",
+            overwrite_existing=True,
+        )
+        stmt = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{DEFAULT_DS_TABLE_SYNC}';"
+        results = await afetch(engine, stmt)
+        expected = [
+            {"column_name": "id", "data_type": "character varying"},
+            {"column_name": "doc_hash", "data_type": "character varying"},
+            {"column_name": "ref_doc_id", "data_type": "character varying"},
+            {"column_name": "node_data", "data_type": "jsonb"},
+        ]
+        for row in results:
+            assert row in expected
