@@ -23,7 +23,7 @@ from llama_index.core.storage.docstore import BaseDocumentStore
 from llama_index.core.storage.docstore.types import RefDocInfo
 from llama_index.core.storage.docstore.utils import doc_to_json, json_to_doc
 from llama_index.core.storage.kvstore.types import DEFAULT_BATCH_SIZE
-from sqlalchemy import text
+from sqlalchemy import RowMapping, text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from .engine import AlloyDBEngine
@@ -40,7 +40,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         engine: AsyncEngine,
         table_name: str,
         schema_name: str = "public",
-        batch_size: str = int(DEFAULT_BATCH_SIZE),
+        batch_size: int = DEFAULT_BATCH_SIZE,
     ):
         """AsyncAlloyDBDocumentStore constructor.
 
@@ -49,7 +49,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             engine (AlloyDBEngine): Database connection pool.
             table_name (str): Table name that stores the documents.
             schema_name (str): The schema name where the table is located. Defaults to "public"
-            batch_size (str): The default batch size for bulk inserts. Defaults to 1.
+            batch_size (int): The default batch size for bulk inserts. Defaults to 1.
 
         Raises:
             Exception: If constructor is directly called by the user.
@@ -69,7 +69,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         engine: AlloyDBEngine,
         table_name: str,
         schema_name: str = "public",
-        batch_size: str = int(DEFAULT_BATCH_SIZE),
+        batch_size: int = DEFAULT_BATCH_SIZE,
     ) -> AsyncAlloyDBDocumentStore:
         """Create a new AsyncAlloyDBDocumentStore instance.
 
@@ -77,7 +77,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             engine (AlloyDBEngine): AlloyDB engine to use.
             table_name (str): Table name that stores the documents.
             schema_name (str): The schema name where the table is located. Defaults to "public"
-            batch_size (str): The default batch size for bulk inserts. Defaults to 1.
+            batch_size (int): The default batch size for bulk inserts. Defaults to 1.
 
         Raises:
             IndexError: If the table provided does not contain required schema.
@@ -105,10 +105,11 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
 
         return cls(cls.__create_key, engine._pool, table_name, schema_name, batch_size)
 
-    async def _aexecute_query(self, query, params=None):
+    async def _aexecute_query(self, query, params):
         async with self._engine.connect() as conn:
             await conn.execute(text(query), params)
             await conn.commit()
+        return None
 
     async def _afetch_query(self, query):
         async with self._engine.connect() as conn:
@@ -120,18 +121,11 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
 
     async def _get_all_from_table(
         self,
-    ) -> Optional[List[Dict[str, str, str, dict]]]:
+    ) -> Optional[Sequence[RowMapping]]:
         """Gets all the rows from the document store.
 
         Returns:
-            Optional[
-                Dict[
-                  str,    # Id
-                  str,    # Doc_hash
-                  str,    # Ref_doc_id
-                  dict    # Node_data
-                ]
-            ]
+            Optional[Sequence[RowMapping]]
         """
         query = f"""SELECT * from "{self._schema_name}"."{self._table_name}";"""
         results = await self._afetch_query(query)
@@ -159,13 +153,13 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
 
     async def _put_all_to_table(
         self,
-        rows: List[Tuple[str, str, str, dict]],
-        batch_size: int = int(DEFAULT_BATCH_SIZE),
+        rows: List[Tuple[str, str, Optional[str], dict]],
+        batch_size: int = DEFAULT_BATCH_SIZE,
     ) -> None:
         """Puts a list of rows into the document table.
 
         Args:
-            rows (List[Tuple[str, str, str, dict]]): List of tuples of the row(id, doc_hash, ref_doc_id, node_data)
+            rows (List[Tuple[str, str, Optional[str], dict]]): List of tuples of the row(id, doc_hash, ref_doc_id, node_data)
             batch_size (int): batch_size to insert the rows. Defaults to 1.
 
         Returns:
@@ -189,11 +183,13 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
               ref_doc_id = EXCLUDED.ref_doc_id;
               """
 
-            params = {}
+            params: Dict[str, Optional[str]] = {}
             for i, (id, doc_hash, ref_doc_id, node_data) in enumerate(batch):
                 params[f"id_{i}"] = id
                 params[f"doc_hash_{i}"] = doc_hash
-                params[f"ref_doc_id_{i}"] = ref_doc_id
+                params[f"ref_doc_id_{i}"] = (
+                    ref_doc_id if ref_doc_id is not None else None
+                )
                 params[f"node_data_{i}"] = json.dumps(node_data)
 
             await self._aexecute_query(stmt, params)
@@ -271,7 +267,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
 
             await self._aexecute_query(stmt, params)
 
-    async def _delete_from_table(self, id: str) -> None:
+    async def _delete_from_table(self, id: str) -> Sequence[RowMapping]:
         """Delete a value from the store.
 
         Args:
@@ -286,7 +282,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
 
     async def _create_node_rows(
         self, nodes: Sequence[BaseNode], allow_update: bool, store_text: bool
-    ) -> List[Tuple[str, str, str, Dict[str, Any]]]:
+    ) -> List[Tuple[str, str, Optional[str], Dict[str, Any]]]:
         """
         This method processes a sequence of document nodes asynchronously and prepares
         a list of rows to be inserted into the table.This method
@@ -339,7 +335,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         self,
         docs: Sequence[BaseNode],
         allow_update: bool = True,
-        batch_size: Optional[int] = int(DEFAULT_BATCH_SIZE),
+        batch_size: int = DEFAULT_BATCH_SIZE,
         store_text: bool = True,
     ) -> None:
         """Adds a document to the store.
@@ -373,7 +369,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         list_docs = await self._get_all_from_table()
 
         if list_docs is None:
-            return None
+            return {}
 
         return {doc["id"]: json_to_doc(doc["node_data"]) for doc in list_docs}
 
@@ -399,7 +395,9 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             else:
                 return None
         json = result.get("node_data")
-        return json_to_doc(json)
+        if json is not None:
+            return json_to_doc(json)
+        return None
 
     async def aget_ref_doc_info(self, ref_doc_id: str) -> Optional[RefDocInfo]:
         """Get the RefDocInfo for a given ref_doc_id.
@@ -432,9 +430,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
                 # Upsert logic: if key exists, the value will be overwritten
                 merged_metadata[key] = value
 
-        ref_doc_info_dict = {"node_ids": node_ids, "metadata": merged_metadata}
-
-        return RefDocInfo(**ref_doc_info_dict)
+        return RefDocInfo(node_ids=node_ids, metadata=merged_metadata)
 
     async def aget_all_ref_doc_info(self) -> Optional[Dict[str, RefDocInfo]]:
         """Get a mapping of ref_doc_id -> RefDocInfo for all ingested documents.
@@ -456,9 +452,9 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             return None
 
         for id in ref_doc_ids:
-            ref_doc_infos[id["ref_doc_id"]] = await self.aget_ref_doc_info(
-                id["ref_doc_id"]
-            )
+            ref_doc_info = await self.aget_ref_doc_info(id["ref_doc_id"])
+            if ref_doc_info is not None:
+                ref_doc_infos[id["ref_doc_id"]] = ref_doc_info
 
         # TODO: deprecated legacy support
         all_ref_doc_infos = {}
@@ -523,12 +519,16 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         if not deleted_doc and raise_error:
             raise ValueError(f"doc_id {doc_id} not found.")
 
-        ref_doc_id = deleted_doc[0].get("ref_doc_id")
+        if deleted_doc:
+            ref_doc_id = deleted_doc[0].get("ref_doc_id")
 
-        results = await self._get_ref_doc_child_node_ids(ref_doc_id)
+            if ref_doc_id:
+                results = await self._get_ref_doc_child_node_ids(ref_doc_id)
 
-        if not results.get("node_ids"):
-            await self._delete_from_table(ref_doc_id)
+                if results and not results.get("node_ids"):
+                    await self._delete_from_table(ref_doc_id)
+
+        return None
 
     async def adelete_ref_doc(self, ref_doc_id: str, raise_error: bool = True) -> None:
         """Delete a ref_doc and all it's associated nodes.
@@ -552,15 +552,17 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             else:
                 return
 
-        original_node_ids = child_node_ids.get(
-            "node_ids"
-        ).copy()  # copy to avoid mutation during iteration
+        node_ids = child_node_ids.get("node_ids", [])
+
+        original_node_ids = node_ids.copy()
 
         for doc_id in original_node_ids:
             await self.adelete_document(doc_id, raise_error=False)
 
         # Deleting all the nodes should already delete the ref_doc, but just to be sure
         await self._delete_from_table(ref_doc_id)
+
+        return None
 
     async def aset_document_hash(self, doc_id: str, doc_hash: str) -> None:
         """Set the hash for a given doc_id.
@@ -615,12 +617,15 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         """
         hashes = {}
         rows = await self._get_all_from_table()
-        for row in rows:
-            hashes[row.get("doc_hash")] = row.get("id")
+        if rows:
+            for row in rows:
+                doc_hash = str(row.get("doc_hash"))
+                doc_id = str(row.get("id"))
+                hashes[doc_hash] = doc_id
         return hashes
 
     @property
-    async def docs(self) -> Dict[str, BaseNode]:
+    def docs(self) -> Dict[str, BaseNode]:
         """Get all documents.
 
         Returns:
@@ -635,7 +640,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         self,
         docs: Sequence[BaseNode],
         allow_update: bool = True,
-        batch_size: int = int(DEFAULT_BATCH_SIZE),
+        batch_size: int = DEFAULT_BATCH_SIZE,
         store_text: bool = True,
     ) -> None:
         raise NotImplementedError(
