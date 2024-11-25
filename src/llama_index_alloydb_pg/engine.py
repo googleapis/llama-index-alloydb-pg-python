@@ -33,7 +33,7 @@ import aiohttp
 import google.auth  # type: ignore
 import google.auth.transport.requests  # type: ignore
 from google.cloud.alloydb.connector import AsyncConnector, IPTypes, RefreshStrategy
-from sqlalchemy import MetaData, RowMapping, Table, text
+from sqlalchemy import MetaData, Table, text
 from sqlalchemy.engine import URL
 from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
@@ -410,6 +410,92 @@ class AlloyDBEngine:
     async def close(self) -> None:
         """Dispose of connection pool"""
         await self._pool.dispose()
+
+    async def _ainit_doc_store_table(
+        self,
+        table_name: str,
+        schema_name: str = "public",
+        overwrite_existing: bool = False,
+    ) -> None:
+        """
+        Create an AlloyDB table for the DocumentStore.
+
+        Args:
+            table_name (str): The table name to store documents.
+            schema_name (str): The schema name to store the documents table.
+                Default: "public".
+
+        Returns:
+            None
+        """
+        if overwrite_existing:
+            async with self._pool.connect() as conn:
+                await conn.execute(
+                    text(f'DROP TABLE IF EXISTS "{schema_name}"."{table_name}"')
+                )
+                await conn.commit()
+
+        node_data_default = r"{}"
+
+        create_table_query = f"""CREATE TABLE "{schema_name}"."{table_name}"(
+            id VARCHAR PRIMARY KEY,
+            doc_hash VARCHAR NOT NULL,
+            ref_doc_id VARCHAR,
+            node_data JSONB NOT NULL DEFAULT '{node_data_default}'::jsonb
+        );"""
+        create_index_query = f"""CREATE INDEX "{table_name}_idx_ref_doc_id" ON "{schema_name}"."{table_name}" (ref_doc_id);"""
+        async with self._pool.connect() as conn:
+            await conn.execute(text(create_table_query))
+            await conn.execute(text(create_index_query))
+            await conn.commit()
+
+    async def ainit_doc_store_table(
+        self,
+        table_name: str,
+        schema_name: str = "public",
+        overwrite_existing: bool = False,
+    ) -> None:
+        """Create an AlloyDB table for the DocumentStore.
+
+        Args:
+            table_name (str): The table name to store documents.
+            schema_name (str): The schema name to store the documents table.
+                Default: "public".
+
+        Returns:
+            None
+        """
+        await self._run_as_async(
+            self._ainit_doc_store_table(
+                table_name,
+                schema_name,
+                overwrite_existing,
+            )
+        )
+
+    def init_doc_store_table(
+        self,
+        table_name: str,
+        schema_name: str = "public",
+        overwrite_existing: bool = False,
+    ) -> None:
+        """Create an AlloyDB table for the DocumentStore.
+
+        Args:
+            table_name (str): The table name to store documents.
+            schema_name (str): The schema name to store the documents table.
+                Default: "public".
+
+        Returns:
+            None
+        """
+        self._run_as_sync(
+            self._ainit_doc_store_table(
+                table_name,
+                schema_name,
+                overwrite_existing,
+            )
+        )
 
     async def _aload_table_schema(
         self, table_name: str, schema_name: str = "public"
