@@ -29,7 +29,7 @@ steps:
     args:
       - -c
       - |
-        wget -O /workspace/alloydb-auth-proxy https://storage.googleapis.com/alloydb-auth-proxy/vlatest.11.0/alloydb-auth-proxy.linux.386
+        wget -O /workspace/alloydb-auth-proxy https://storage.googleapis.com/alloydb-auth-proxy/v1.11.0/alloydb-auth-proxy.linux.386
         chmod +x /workspace/alloydb-auth-proxy
 
   - id: Run integration tests
