@@ -117,7 +117,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             await conn.commit()
         return results
 
-    async def __put_all_doc_hashes_to_table(
+    async def _put_all_doc_hashes_to_table(
         self, rows: List[Tuple[str, str]], batch_size: int = int(DEFAULT_BATCH_SIZE)
     ) -> None:
         """Puts a multiple rows of node ids with their doc_hash into the document table.
@@ -145,7 +145,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
 
             await self.__aexecute_query(stmt, params)
 
-    async def __delete_from_table(self, id: str) -> Sequence[RowMapping]:
+    async def _delete_from_table(self, id: str) -> Sequence[RowMapping]:
         """Delete a value from the store.
 
         Args:
@@ -330,7 +330,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         Returns:
             bool : True if document exists as a ref doc in the table.
         """
-        return bool(await self.__get_ref_doc_child_node_ids(ref_doc_id))
+        return bool(await self._get_ref_doc_child_node_ids(ref_doc_id))
 
     async def adocument_exists(self, doc_id: str) -> bool:
         """Check if document exists.
@@ -345,7 +345,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         result = await self.__afetch_query(query)
         return bool(result)
 
-    async def __get_ref_doc_child_node_ids(
+    async def _get_ref_doc_child_node_ids(
         self, ref_doc_id: str
     ) -> Optional[Dict[str, List[str]]]:
         """Helper function to find the child node mappings of a ref_doc_id.
@@ -376,7 +376,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             ValueError: If a node is not found and `raise_error` is set to True.
         """
 
-        deleted_docs = await self.__delete_from_table(doc_id)
+        deleted_docs = await self._delete_from_table(doc_id)
         if not deleted_docs and raise_error:
             raise ValueError(f"doc_id {doc_id} not found.")
 
@@ -384,10 +384,10 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             ref_doc_id = deleted_docs[0].get("ref_doc_id")
 
             if ref_doc_id:
-                results = await self.__get_ref_doc_child_node_ids(ref_doc_id)
+                results = await self._get_ref_doc_child_node_ids(ref_doc_id)
 
                 if results and not results.get("node_ids"):
-                    await self.__delete_from_table(ref_doc_id)
+                    await self._delete_from_table(ref_doc_id)
 
         return None
 
@@ -405,7 +405,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             ValueError: If ref_doc_info for the ref_doc_id doesn't exist and `raise_error` is set to True.
         """
 
-        child_node_ids = await self.__get_ref_doc_child_node_ids(ref_doc_id)
+        child_node_ids = await self._get_ref_doc_child_node_ids(ref_doc_id)
 
         if child_node_ids is None:
             if raise_error:
@@ -416,7 +416,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         query = f"""DELETE FROM "{self._schema_name}"."{self._table_name}" WHERE ref_doc_id = :ref_doc_id;"""
         await self.__aexecute_query(query, {"ref_doc_id": ref_doc_id})
 
-        await self.__delete_from_table(ref_doc_id)
+        await self._delete_from_table(ref_doc_id)
 
         return None
 
@@ -431,7 +431,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             None
         """
 
-        await self.__put_all_doc_hashes_to_table(rows=[(doc_id, doc_hash)])
+        await self._put_all_doc_hashes_to_table(rows=[(doc_id, doc_hash)])
 
     async def aset_document_hashes(self, doc_hashes: Dict[str, str]) -> None:
         """Set the hash for a given doc_id.
@@ -446,7 +446,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         for doc_id, doc_hash in doc_hashes.items():
             doc_hash_pairs.append((doc_id, doc_hash))
 
-        await self.__put_all_doc_hashes_to_table(doc_hash_pairs)
+        await self._put_all_doc_hashes_to_table(doc_hash_pairs)
 
     async def aget_document_hash(self, doc_id: str) -> Optional[str]:
         """Get the stored hash for a document, if it exists.
