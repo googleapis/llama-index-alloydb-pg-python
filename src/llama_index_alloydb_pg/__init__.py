@@ -14,4 +14,4 @@
 
 from .engine import AlloyDBEngine, Column
 
-_all = ["AlloyDBEngine", "Column"]
+_all = ["AlloyDBEngine", "Column", "__version__"]
