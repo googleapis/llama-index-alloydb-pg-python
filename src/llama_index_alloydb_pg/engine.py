@@ -424,8 +424,8 @@ class AlloyDBEngine:
             table_name (str): The table name to store documents.
             schema_name (str): The schema name to store the documents table.
                 Default: "public".
-            overwrite_existing (bool): To allow overwriting if the table already exists
-                Default: False
+            overwrite_existing (bool): Whether to drop existing table.
+                Default: False.
 
         Returns:
             None
@@ -463,8 +463,8 @@ class AlloyDBEngine:
             table_name (str): The table name to store documents.
             schema_name (str): The schema name to store the documents table.
                 Default: "public".
-            overwrite_existing (bool): To allow overwriting if the table already exists
-                Default: False
+            overwrite_existing (bool): Whether to drop existing table.
+                Default: False.
 
         Returns:
             None
@@ -489,8 +489,8 @@ class AlloyDBEngine:
             table_name (str): The table name to store documents.
             schema_name (str): The schema name to store the documents table.
                 Default: "public".
-            overwrite_existing (bool): To allow overwriting if the table already exists
-                Default: False
+            overwrite_existing (bool): Whether to drop existing table.
+                Default: False.
 
         Returns:
             None
@@ -516,8 +516,8 @@ class AlloyDBEngine:
             table_name (str): The table name to store index metadata.
             schema_name (str): The schema name to store the index metadata table.
                 Default: "public".
-            overwrite_existing (bool): To allow overwriting if the table already exists
-                Default: False
+            overwrite_existing (bool): Whether to drop existing table.
+                Default: False.
 
         Returns:
             None
@@ -553,8 +553,8 @@ class AlloyDBEngine:
             table_name (str): The table name to store index metadata.
             schema_name (str): The schema name to store the index metadata table.
                 Default: "public".
-            overwrite_existing (bool): To allow overwriting if the table already exists
-                Default: False
+            overwrite_existing (bool): Whether to drop existing table.
+                Default: False.
 
         Returns:
             None
@@ -580,8 +580,8 @@ class AlloyDBEngine:
             table_name (str): The table name to store index metadata.
             schema_name (str): The schema name to store the index metadata table.
                 Default: "public".
-            overwrite_existing (bool): To allow overwriting if the table already exists
-                Default: False
+            overwrite_existing (bool): Whether to drop existing table.
+                Default: False.
 
         Returns:
             None
