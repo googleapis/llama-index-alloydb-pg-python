@@ -30,6 +30,8 @@ from llama_index_alloydb_pg import AlloyDBEngine, Column
 
 DEFAULT_DS_TABLE = "document_store_" + str(uuid.uuid4())
 DEFAULT_DS_TABLE_SYNC = "document_store_" + str(uuid.uuid4())
+DEFAULT_IS_TABLE = "index_store_" + str(uuid.uuid4())
+DEFAULT_IS_TABLE_SYNC = "index_store_" + str(uuid.uuid4())
 
 
 def get_env_var(key: str, desc: str) -> str:
@@ -250,6 +252,22 @@ class TestEngineAsync:
         for row in results:
             assert row in expected
 
+    async def test_init_index_store(self, engine):
+        await engine.ainit_index_store_table(
+            table_name=DEFAULT_IS_TABLE,
+            schema_name="public",
+            overwrite_existing=True,
+        )
+        stmt = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{DEFAULT_IS_TABLE}';"
+        results = await afetch(engine, stmt)
+        expected = [
+            {"column_name": "index_id", "data_type": "character varying"},
+            {"column_name": "type", "data_type": "character varying"},
+            {"column_name": "index_data", "data_type": "jsonb"},
+        ]
+        for row in results:
+            assert row in expected
+
 
 @pytest.mark.asyncio
 class TestEngineSync:
@@ -369,6 +387,22 @@ class TestEngineSync:
             {"column_name": "doc_hash", "data_type": "character varying"},
             {"column_name": "ref_doc_id", "data_type": "character varying"},
             {"column_name": "node_data", "data_type": "jsonb"},
+        ]
+        for row in results:
+            assert row in expected
+
+    async def test_init_index_store(self, engine):
+        engine.init_index_store_table(
+            table_name=DEFAULT_IS_TABLE_SYNC,
+            schema_name="public",
+            overwrite_existing=True,
+        )
+        stmt = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{DEFAULT_IS_TABLE_SYNC}';"
+        results = await afetch(engine, stmt)
+        expected = [
+            {"column_name": "index_id", "data_type": "character varying"},
+            {"column_name": "type", "data_type": "character varying"},
+            {"column_name": "index_data", "data_type": "jsonb"},
         ]
         for row in results:
             assert row in expected

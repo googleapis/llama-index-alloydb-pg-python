@@ -497,6 +497,91 @@ class AlloyDBEngine:
             )
         )
 
+    async def _ainit_index_store_table(
+        self,
+        table_name: str,
+        schema_name: str = "public",
+        overwrite_existing: bool = False,
+    ) -> None:
+        """
+        Create an AlloyDB table to save Index metadata.
+
+        Args:
+            table_name (str): The table name to store index metadata.
+            schema_name (str): The schema name to store the index metadata table.
+                Default: "public".
+
+        Returns:
+            None
+        """
+        if overwrite_existing:
+            async with self._pool.connect() as conn:
+                await conn.execute(
+                    text(f'DROP TABLE IF EXISTS "{schema_name}"."{table_name}"')
+                )
+                await conn.commit()
+
+        create_table_query = f"""CREATE TABLE "{schema_name}"."{table_name}"(
+            index_id VARCHAR PRIMARY KEY,
+            type VARCHAR NOT NULL,
+            index_data JSONB NOT NULL
+        );"""
+        create_index_query = f"""CREATE INDEX "{table_name}_idx_index_id" ON "{schema_name}"."{table_name}" (index_id);"""
+        async with self._pool.connect() as conn:
+            await conn.execute(text(create_table_query))
+            await conn.execute(text(create_index_query))
+            await conn.commit()
+
+    async def ainit_index_store_table(
+        self,
+        table_name: str,
+        schema_name: str = "public",
+        overwrite_existing: bool = False,
+    ) -> None:
+        """
+        Create an AlloyDB table to save Index metadata.
+
+        Args:
+            table_name (str): The table name to store index metadata.
+            schema_name (str): The schema name to store the index metadata table.
+                Default: "public".
+
+        Returns:
+            None
+        """
+        await self._run_as_async(
+            self._ainit_index_store_table(
+                table_name,
+                schema_name,
+                overwrite_existing,
+            )
+        )
+
+    def init_index_store_table(
+        self,
+        table_name: str,
+        schema_name: str = "public",
+        overwrite_existing: bool = False,
+    ) -> None:
+        """
+        Create an AlloyDB table to save Index metadata.
+
+        Args:
+            table_name (str): The table name to store index metadata.
+            schema_name (str): The schema name to store the index metadata table.
+                Default: "public".
+
+        Returns:
+            None
+        """
+        self._run_as_sync(
+            self._ainit_index_store_table(
+                table_name,
+                schema_name,
+                overwrite_existing,
+            )
+        )
+
     async def _aload_table_schema(
         self, table_name: str, schema_name: str = "public"
     ) -> Table:
