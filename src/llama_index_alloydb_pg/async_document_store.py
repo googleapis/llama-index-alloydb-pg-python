@@ -55,9 +55,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             Exception: If constructor is directly called by the user.
         """
         if key != AsyncAlloyDBDocumentStore.__create_key:
-            raise Exception(
-                "Only create class through 'create' or 'create_sync' methods!"
-            )
+            raise Exception("Only create class through 'create' method!")
         self._engine = engine
         self._table_name = table_name
         self._schema_name = schema_name
@@ -80,7 +78,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             batch_size (int): The default batch size for bulk inserts. Defaults to 1.
 
         Raises:
-            IndexError: If the table provided does not contain required schema.
+            ValueError: If the table provided does not contain required schema.
 
         Returns:
             AsyncAlloyDBDocumentStore: A newly created instance of AsyncAlloyDBDocumentStore.
@@ -91,27 +89,27 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         required_columns = ["id", "doc_hash", "ref_doc_id", "node_data"]
 
         if not (all(x in column_names for x in required_columns)):
-            raise IndexError(
+            raise ValueError(
                 f"Table '{schema_name}'.'{table_name}' has incorrect schema. Got "
                 f"column names '{column_names}' but required column names "
                 f"'{required_columns}'.\nPlease create table with following schema:"
-                f"\nCREATE TABLE {schema_name}.{table_name} ("
-                "\n    id VARCHAR PRIMARY KEY,"
-                "\n    doc_hash VARCHAR NOT NULL,"
-                "\n    ref_doc_id VARCHAR,"
-                "\n    node_data JSONB NOT NULL"
-                "\n);"
+                f"CREATE TABLE {schema_name}.{table_name} ("
+                "    id VARCHAR PRIMARY KEY,"
+                "    doc_hash VARCHAR NOT NULL,"
+                "    ref_doc_id VARCHAR,"
+                "    node_data JSONB NOT NULL"
+                ");"
             )
 
         return cls(cls.__create_key, engine._pool, table_name, schema_name, batch_size)
 
-    async def _aexecute_query(self, query, params):
+    async def __aexecute_query(self, query, params):
         async with self._engine.connect() as conn:
             await conn.execute(text(query), params)
             await conn.commit()
         return None
 
-    async def _afetch_query(self, query):
+    async def __afetch_query(self, query):
         async with self._engine.connect() as conn:
             result = await conn.execute(text(query))
             result_map = result.mappings()
@@ -119,119 +117,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             await conn.commit()
         return results
 
-    async def _get_all_from_table(
-        self,
-    ) -> Optional[Sequence[RowMapping]]:
-        """Gets all the rows from the document store.
-
-        Returns:
-            Optional[Sequence[RowMapping]]
-        """
-        query = f"""SELECT * from "{self._schema_name}"."{self._table_name}";"""
-        results = await self._afetch_query(query)
-        if results:
-            return results
-        return None
-
-    async def _get_from_table(self, id: str, columns: str = "*") -> Optional[dict]:
-        """Gets the specific rows from the document store with the provided id.
-
-        Args:
-            id (str): The id to fetch the node / document
-            columns (str): Column to be returned in the query. Defaults to * (all)
-
-        Returns:
-            Optional[
-              Dict : Dictionary with the column name as key and data from the row as value.
-            ]
-        """
-        query = f"""SELECT {columns} from "{self._schema_name}"."{self._table_name}" WHERE id = '{id}';"""
-        result = await self._afetch_query(query)
-        if result:
-            return result[0]
-        return None
-
-    async def _put_all_to_table(
-        self,
-        rows: List[Tuple[str, str, Optional[str], dict]],
-        batch_size: int = DEFAULT_BATCH_SIZE,
-    ) -> None:
-        """Puts a list of rows into the document table.
-
-        Args:
-            rows (List[Tuple[str, str, Optional[str], dict]]): List of tuples of the row(id, doc_hash, ref_doc_id, node_data)
-            batch_size (int): batch_size to insert the rows. Defaults to 1.
-
-        Returns:
-            None
-        """
-        for i in range(0, len(rows), batch_size):
-            batch = rows[i : i + batch_size]
-            # Prepare the VALUES part of the SQL statement
-            values_clause = ", ".join(
-                f"(:id_{i}, :doc_hash_{i}, :ref_doc_id_{i}, :node_data_{i})"
-                for i, _ in enumerate(batch)
-            )
-
-            # Insert statement
-            stmt = f"""
-              INSERT INTO "{self._schema_name}"."{self._table_name}" (id, doc_hash, ref_doc_id, node_data)
-              VALUES {values_clause}
-              ON CONFLICT (id)
-              DO UPDATE SET
-              node_data = EXCLUDED.node_data,
-              ref_doc_id = EXCLUDED.ref_doc_id;
-              """
-
-            params: Dict[str, Optional[str]] = {}
-            for i, (id, doc_hash, ref_doc_id, node_data) in enumerate(batch):
-                params[f"id_{i}"] = id
-                params[f"doc_hash_{i}"] = doc_hash
-                params[f"ref_doc_id_{i}"] = (
-                    ref_doc_id if ref_doc_id is not None else None
-                )
-                params[f"node_data_{i}"] = json.dumps(node_data)
-
-            await self._aexecute_query(stmt, params)
-
-    async def _put_to_table(
-        self,
-        id: str,
-        doc_hash: str,
-        ref_doc_id: str,
-        node_data: Dict[str, Any],
-    ) -> None:
-        """Puts a row into the document table.
-
-        Args:
-            id (str): node / document id.
-            doc_hash (str):  hash of node / document id.
-            ref_doc_id (str): ref_doc_id of the node / document id.
-            node_data (dict): Dictionary containing BaseNode data.
-
-        Returns:
-            None
-        """
-        await self._put_all_to_table([(id, doc_hash, ref_doc_id, node_data)])
-
-    async def _put_doc_hash_to_table(
-        self,
-        id: str,
-        doc_hash: str,
-    ) -> None:
-        """Puts a document / node into the table with it's doc_hash.
-        Incase a row with the id already exists, it updates the row with the new doc_hash.
-
-        Args:
-            id (str): node / document id.
-            doc_hash (str):  hash of node / document id.
-
-        Returns:
-            None
-        """
-        await self._put_all_doc_hashes_to_table([(id, doc_hash)])
-
-    async def _put_all_doc_hashes_to_table(
+    async def __put_all_doc_hashes_to_table(
         self, rows: List[Tuple[str, str]], batch_size: int = int(DEFAULT_BATCH_SIZE)
     ) -> None:
         """Puts a multiple rows of node ids with their doc_hash into the document table.
@@ -246,28 +132,20 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         """
         for i in range(0, len(rows), batch_size):
             batch = rows[i : i + batch_size]
-            # Prepare the VALUES part of the SQL statement
-            values_clause = ", ".join(
-                f"(:id_{i}, :doc_hash_{i})" for i, _ in enumerate(batch)
-            )
+            params = [{"id": id, "doc_hash": doc_hash} for id, doc_hash in batch]
 
             # Insert statement
             stmt = f"""
               INSERT INTO "{self._schema_name}"."{self._table_name}" (id, doc_hash)
-              VALUES {values_clause}
+              VALUES (:id, :doc_hash)
               ON CONFLICT (id)
               DO UPDATE SET
               doc_hash = EXCLUDED.doc_hash;
               """
 
-            params = {}
-            for i, (id, doc_hash) in enumerate(batch):
-                params[f"id_{i}"] = id
-                params[f"doc_hash_{i}"] = doc_hash
+            await self.__aexecute_query(stmt, params)
 
-            await self._aexecute_query(stmt, params)
-
-    async def _delete_from_table(self, id: str) -> Sequence[RowMapping]:
+    async def __delete_from_table(self, id: str) -> Sequence[RowMapping]:
         """Delete a value from the store.
 
         Args:
@@ -277,59 +155,8 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             List of deleted rows.
         """
         query = f"""DELETE FROM "{self._schema_name}"."{self._table_name}" WHERE id = '{id}' RETURNING *; """
-        result = await self._afetch_query(query)
+        result = await self.__afetch_query(query)
         return result
-
-    async def _create_node_rows(
-        self, nodes: Sequence[BaseNode], allow_update: bool, store_text: bool
-    ) -> List[Tuple[str, str, Optional[str], Dict[str, Any]]]:
-        """
-        This method processes a sequence of document nodes asynchronously and prepares
-        a list of rows to be inserted into the table.This method
-        does not insert the key-value pairs into the store; it only prepares them.
-
-        Args:
-            nodes (Sequence[BaseNode]): A sequence of document nodes to be processed.
-            allow_update (bool): A flag indicating whether existing nodes should be updated.
-            store_text (bool): A flag indicating whether the text content of the nodes should be stored.
-
-        Returns:
-            List[
-              Tuple[
-                str,              # Node or document Id
-                str,              # Doc_hash
-                str,              # Ref_doc_id of the node
-                Dict[str, Any]]   # Data from the base node
-              ]
-
-        Raises:
-            ValueError: If a node already exists in the store and `allow_update` is False.
-        """
-        node_rows = []
-
-        for node in nodes:
-            # NOTE: doc could already exist in the store, but we overwrite it
-            if not allow_update and await self.adocument_exists(node.node_id):
-                raise ValueError(
-                    f"node_id {node.node_id} already exists. "
-                    "Set allow_update to True to overwrite."
-                )
-            node_row = None
-
-            id = node.node_id
-            data = doc_to_json(node)
-
-            if store_text:
-                node_data = data
-            ref_doc_id = node.ref_doc_id
-            doc_hash = node.hash
-
-            node_row = (id, doc_hash, ref_doc_id, node_data)
-
-            if node_row is not None:
-                node_rows.append(node_row)
-
-        return node_rows
 
     async def async_add_documents(
         self,
@@ -351,12 +178,43 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         """
         batch_size = batch_size or self._batch_size
 
-        node_rows = await self._create_node_rows(docs, allow_update, store_text)
+        node_rows = []
 
-        await self._put_all_to_table(
-            node_rows,
-            batch_size=batch_size,
-        )
+        for node in docs:
+            # NOTE: doc could already exist in the store, but we overwrite it
+            if not allow_update and await self.adocument_exists(node.node_id):
+                raise ValueError(
+                    f"node_id {node.node_id} already exists. "
+                    "Set allow_update to True to overwrite."
+                )
+            node_row = None
+
+            id = node.node_id
+            data = doc_to_json(node)
+
+            if store_text:
+                node_data = data
+            ref_doc_id = node.ref_doc_id
+            doc_hash = node.hash
+
+            node_row = {
+                "id": id,
+                "doc_hash": doc_hash,
+                "ref_doc_id": ref_doc_id,
+                "node_data": json.dumps(node_data),
+            }
+
+            node_rows.append(node_row)
+
+        for i in range(0, len(node_rows), batch_size):
+            batch = node_rows[i : i + batch_size]
+
+            insert_query = f'INSERT INTO "{self._schema_name}"."{self._table_name}"(id, doc_hash, ref_doc_id, node_data) '
+            values_statement = f"VALUES (:id, :doc_hash, :ref_doc_id, :node_data)"
+            upsert_statement = " ON CONFLICT (id) DO UPDATE SET node_data = EXCLUDED.node_data, ref_doc_id = EXCLUDED.ref_doc_id, doc_hash = EXCLUDED.doc_hash;"
+
+            query = insert_query + values_statement + upsert_statement
+            await self.__aexecute_query(query, batch)
 
     @property
     async def adocs(self) -> Dict[str, BaseNode]:
@@ -364,9 +222,9 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
 
         Returns:
             Dict[str, BaseDocument]: documents
-
         """
-        list_docs = await self._get_all_from_table()
+        query = f"""SELECT * from "{self._schema_name}"."{self._table_name}";"""
+        list_docs = await self.__afetch_query(query)
 
         if list_docs is None:
             return {}
@@ -388,16 +246,18 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         Returns:
             Optional[BaseNode]: Returns a `BaseNode` object if the document is found
         """
-        result = await self._get_from_table(doc_id, "node_data")
-        if result is None:
-            if raise_error:
-                raise ValueError(f"doc_id {doc_id} not found.")
-            else:
-                return None
-        json = result.get("node_data")
-        if json is not None:
-            return json_to_doc(json)
-        return None
+        query = f"""SELECT node_data from "{self._schema_name}"."{self._table_name}" WHERE id = '{doc_id}';"""
+        result = await self.__afetch_query(query)
+
+        if result:
+            result = result[0]
+            json = result.get("node_data")
+            if json is not None:
+                return json_to_doc(json)
+        if raise_error:
+            raise ValueError(f"doc_id {doc_id} not found.")
+        else:
+            return None
 
     async def aget_ref_doc_info(self, ref_doc_id: str) -> Optional[RefDocInfo]:
         """Get the RefDocInfo for a given ref_doc_id.
@@ -410,7 +270,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         """
         query = f"""select id, node_data from "{self._schema_name}"."{self._table_name}" where ref_doc_id = '{ref_doc_id}'"""
 
-        rows = await self._afetch_query(query)
+        rows = await self.__afetch_query(query)
         node_ids = []
         merged_metadata = {}
 
@@ -446,7 +306,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
 
         ref_doc_infos = {}
         query = f"""SELECT distinct on (ref_doc_id) ref_doc_id from "{self._schema_name}"."{self._table_name}";"""
-        ref_doc_ids = await self._afetch_query(query)
+        ref_doc_ids = await self.__afetch_query(query)
 
         if ref_doc_ids is None:
             return None
@@ -456,7 +316,6 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             if ref_doc_info is not None:
                 ref_doc_infos[id["ref_doc_id"]] = ref_doc_info
 
-        # TODO: deprecated legacy support
         all_ref_doc_infos = {}
         for doc_id, ref_doc_info in ref_doc_infos.items():
             all_ref_doc_infos[doc_id] = ref_doc_info
@@ -471,7 +330,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         Returns:
             bool : True if document exists as a ref doc in the table.
         """
-        return bool(await self._get_ref_doc_child_node_ids(ref_doc_id))
+        return bool(await self.__get_ref_doc_child_node_ids(ref_doc_id))
 
     async def adocument_exists(self, doc_id: str) -> bool:
         """Check if document exists.
@@ -482,9 +341,11 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         Returns:
             bool : True if document exists in the table.
         """
-        return await self._get_from_table(doc_id) is not None
+        query = f"""SELECT id from "{self._schema_name}"."{self._table_name}" WHERE id = '{doc_id}' LIMIT 1;"""
+        result = await self.__afetch_query(query)
+        return bool(result)
 
-    async def _get_ref_doc_child_node_ids(
+    async def __get_ref_doc_child_node_ids(
         self, ref_doc_id: str
     ) -> Optional[Dict[str, List[str]]]:
         """Helper function to find the child node mappings of a ref_doc_id.
@@ -497,12 +358,12 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
               ]
             ]"""
         query = f"""select id from "{self._schema_name}"."{self._table_name}" where ref_doc_id = '{ref_doc_id}';"""
-        results = await self._afetch_query(query)
+        results = await self.__afetch_query(query)
         result = {"node_ids": [item["id"] for item in results]}
         return result
 
     async def adelete_document(self, doc_id: str, raise_error: bool = True) -> None:
-        """Delete a document from the store.
+        """Delete a document from the store but preserve its child nodes.
 
         Args:
             doc_id (str): Id of the document / node to be deleted.
@@ -515,18 +376,18 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             ValueError: If a node is not found and `raise_error` is set to True.
         """
 
-        deleted_doc = await self._delete_from_table(doc_id)
-        if not deleted_doc and raise_error:
+        deleted_docs = await self.__delete_from_table(doc_id)
+        if not deleted_docs and raise_error:
             raise ValueError(f"doc_id {doc_id} not found.")
 
-        if deleted_doc:
-            ref_doc_id = deleted_doc[0].get("ref_doc_id")
+        if deleted_docs:
+            ref_doc_id = deleted_docs[0].get("ref_doc_id")
 
             if ref_doc_id:
-                results = await self._get_ref_doc_child_node_ids(ref_doc_id)
+                results = await self.__get_ref_doc_child_node_ids(ref_doc_id)
 
                 if results and not results.get("node_ids"):
-                    await self._delete_from_table(ref_doc_id)
+                    await self.__delete_from_table(ref_doc_id)
 
         return None
 
@@ -544,7 +405,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             ValueError: If ref_doc_info for the ref_doc_id doesn't exist and `raise_error` is set to True.
         """
 
-        child_node_ids = await self._get_ref_doc_child_node_ids(ref_doc_id)
+        child_node_ids = await self.__get_ref_doc_child_node_ids(ref_doc_id)
 
         if child_node_ids is None:
             if raise_error:
@@ -560,7 +421,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             await self.adelete_document(doc_id, raise_error=False)
 
         # Deleting all the nodes should already delete the ref_doc, but just to be sure
-        await self._delete_from_table(ref_doc_id)
+        await self.__delete_from_table(ref_doc_id)
 
         return None
 
@@ -575,7 +436,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             None
         """
 
-        await self._put_doc_hash_to_table(doc_id, doc_hash)
+        await self.__put_all_doc_hashes_to_table(rows=[(doc_id, doc_hash)])
 
     async def aset_document_hashes(self, doc_hashes: Dict[str, str]) -> None:
         """Set the hash for a given doc_id.
@@ -590,7 +451,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         for doc_id, doc_hash in doc_hashes.items():
             doc_hash_pairs.append((doc_id, doc_hash))
 
-        await self._put_all_doc_hashes_to_table(doc_hash_pairs)
+        await self.__put_all_doc_hashes_to_table(doc_hash_pairs)
 
     async def aget_document_hash(self, doc_id: str) -> Optional[str]:
         """Get the stored hash for a document, if it exists.
@@ -600,9 +461,11 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
               str   # hash for the given doc_id
             ]
         """
-        row = await self._get_from_table(doc_id)
-        if row is not None:
-            return row.get("doc_hash", None)
+        query = f"""SELECT id, doc_hash from "{self._schema_name}"."{self._table_name}" WHERE id = '{doc_id}' LIMIT 1;"""
+        row = await self.__afetch_query(query)
+
+        if row:
+            return row[0].get("doc_hash", None)
         else:
             return None
 
@@ -616,12 +479,16 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             ]
         """
         hashes = {}
-        rows = await self._get_all_from_table()
+
+        query = f"""SELECT * from "{self._schema_name}"."{self._table_name}";"""
+        rows = await self.__afetch_query(query)
+
         if rows:
             for row in rows:
                 doc_hash = str(row.get("doc_hash"))
                 doc_id = str(row.get("id"))
-                hashes[doc_hash] = doc_id
+                if doc_hash:
+                    hashes[doc_hash] = doc_id
         return hashes
 
     @property
@@ -633,7 +500,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
 
         """
         raise NotImplementedError(
-            "Sync methods are not implemented for AsyncAlloyDBDocumentStore . Use AlloyDBDocumentStore  interface instead."
+            "Sync methods are not implemented for AsyncAlloyDBDocumentStore. Use AlloyDBDocumentStore  interface instead."
         )
 
     def add_documents(
@@ -644,61 +511,61 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         store_text: bool = True,
     ) -> None:
         raise NotImplementedError(
-            "Sync methods are not implemented for AsyncAlloyDBDocumentStore . Use AlloyDBDocumentStore  interface instead."
+            "Sync methods are not implemented for AsyncAlloyDBDocumentStore. Use AlloyDBDocumentStore  interface instead."
         )
 
     def get_document(self, doc_id: str, raise_error: bool = True) -> Optional[BaseNode]:
         raise NotImplementedError(
-            "Sync methods are not implemented for AsyncAlloyDBDocumentStore . Use AlloyDBDocumentStore  interface instead."
+            "Sync methods are not implemented for AsyncAlloyDBDocumentStore. Use AlloyDBDocumentStore  interface instead."
         )
 
     def delete_document(self, doc_id: str, raise_error: bool = True) -> None:
         """Delete a document from the store."""
         raise NotImplementedError(
-            "Sync methods are not implemented for AsyncAlloyDBDocumentStore . Use AlloyDBDocumentStore  interface instead."
+            "Sync methods are not implemented for AsyncAlloyDBDocumentStore. Use AlloyDBDocumentStore  interface instead."
         )
 
     def document_exists(self, doc_id: str) -> bool:
         raise NotImplementedError(
-            "Sync methods are not implemented for AsyncAlloyDBDocumentStore . Use AlloyDBDocumentStore  interface instead."
+            "Sync methods are not implemented for AsyncAlloyDBDocumentStore. Use AlloyDBDocumentStore  interface instead."
         )
 
     def ref_doc_exists(self, ref_doc_id: str) -> bool:
         raise NotImplementedError(
-            "Sync methods are not implemented for AsyncAlloyDBDocumentStore . Use AlloyDBDocumentStore  interface instead."
+            "Sync methods are not implemented for AsyncAlloyDBDocumentStore. Use AlloyDBDocumentStore  interface instead."
         )
 
     def set_document_hash(self, doc_id: str, doc_hash: str) -> None:
         raise NotImplementedError(
-            "Sync methods are not implemented for AsyncAlloyDBDocumentStore . Use AlloyDBDocumentStore  interface instead."
+            "Sync methods are not implemented for AsyncAlloyDBDocumentStore. Use AlloyDBDocumentStore  interface instead."
         )
 
     def set_document_hashes(self, doc_hashes: Dict[str, str]) -> None:
         raise NotImplementedError(
-            "Sync methods are not implemented for AsyncAlloyDBDocumentStore . Use AlloyDBDocumentStore  interface instead."
+            "Sync methods are not implemented for AsyncAlloyDBDocumentStore. Use AlloyDBDocumentStore  interface instead."
         )
 
     def get_document_hash(self, doc_id: str) -> Optional[str]:
         raise NotImplementedError(
-            "Sync methods are not implemented for AsyncAlloyDBDocumentStore . Use AlloyDBDocumentStore  interface instead."
+            "Sync methods are not implemented for AsyncAlloyDBDocumentStore. Use AlloyDBDocumentStore  interface instead."
         )
 
     def get_all_document_hashes(self) -> Dict[str, str]:
         raise NotImplementedError(
-            "Sync methods are not implemented for AsyncAlloyDBDocumentStore . Use AlloyDBDocumentStore  interface instead."
+            "Sync methods are not implemented for AsyncAlloyDBDocumentStore. Use AlloyDBDocumentStore  interface instead."
         )
 
     def get_all_ref_doc_info(self) -> Optional[Dict[str, RefDocInfo]]:
         raise NotImplementedError(
-            "Sync methods are not implemented for AsyncAlloyDBDocumentStore . Use AlloyDBDocumentStore  interface instead."
+            "Sync methods are not implemented for AsyncAlloyDBDocumentStore. Use AlloyDBDocumentStore  interface instead."
         )
 
     def get_ref_doc_info(self, ref_doc_id: str) -> Optional[RefDocInfo]:
         raise NotImplementedError(
-            "Sync methods are not implemented for AsyncAlloyDBDocumentStore . Use AlloyDBDocumentStore  interface instead."
+            "Sync methods are not implemented for AsyncAlloyDBDocumentStore. Use AlloyDBDocumentStore  interface instead."
         )
 
     def delete_ref_doc(self, ref_doc_id: str, raise_error: bool = True) -> None:
         raise NotImplementedError(
-            "Sync methods are not implemented for AsyncAlloyDBDocumentStore . Use AlloyDBDocumentStore  interface instead."
+            "Sync methods are not implemented for AsyncAlloyDBDocumentStore. Use AlloyDBDocumentStore  interface instead."
         )

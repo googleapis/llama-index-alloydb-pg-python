@@ -81,7 +81,7 @@ class TestAsyncAlloyDBDocumentStore:
 
     @pytest_asyncio.fixture(scope="class")
     async def async_engine(
-        self, db_project, db_region, db_cluster, db_instance, db_name, user, password
+        self, db_project, db_region, db_cluster, db_instance, db_name
     ):
         async_engine = await AlloyDBEngine.afrom_instance(
             project_id=db_project,
