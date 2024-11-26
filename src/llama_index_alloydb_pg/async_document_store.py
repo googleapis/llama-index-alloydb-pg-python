@@ -413,14 +413,9 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             else:
                 return
 
-        node_ids = child_node_ids.get("node_ids", [])
+        query = f"""DELETE FROM "{self._schema_name}"."{self._table_name}" WHERE ref_doc_id = :ref_doc_id;"""
+        await self.__aexecute_query(query, {"ref_doc_id": ref_doc_id})
 
-        original_node_ids = node_ids.copy()
-
-        for doc_id in original_node_ids:
-            await self.adelete_document(doc_id, raise_error=False)
-
-        # Deleting all the nodes should already delete the ref_doc, but just to be sure
         await self.__delete_from_table(ref_doc_id)
 
         return None
@@ -480,7 +475,9 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
         """
         hashes = {}
 
-        query = f"""SELECT * from "{self._schema_name}"."{self._table_name}";"""
+        query = (
+            f"""SELECT id, doc_hash from "{self._schema_name}"."{self._table_name}";"""
+        )
         rows = await self.__afetch_query(query)
 
         if rows:
