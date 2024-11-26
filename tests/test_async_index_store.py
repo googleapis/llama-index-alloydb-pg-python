@@ -150,6 +150,6 @@ class TestAsyncAlloyDBIndexStore:
 
         indexes = await index_store.aindex_structs()
 
-        assert indexes[index_dict_struct.index_id] == index_dict_struct
-        assert indexes[index_list_struct.index_id] == index_list_struct
-        assert indexes[index_graph_struct.index_id] == index_graph_struct
+        assert index_dict_struct in indexes
+        assert index_list_struct in indexes
+        assert index_graph_struct in indexes
