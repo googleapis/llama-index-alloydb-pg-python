@@ -85,7 +85,7 @@ class AsyncAlloyDBIndexStore(BaseIndexStore):
         required_columns = ["index_id", "type", "index_data"]
 
         if not (all(x in column_names for x in required_columns)):
-            raise IndexError(
+            raise ValueError(
                 f"Table '{schema_name}'.'{table_name}' has an incorrect schema.\n"
                 f"Expected column names: {required_columns}\n"
                 f"Provided column names: {column_names}\n"
