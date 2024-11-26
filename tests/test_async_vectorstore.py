@@ -18,7 +18,7 @@ from typing import List, Sequence
 
 import pytest
 import pytest_asyncio
-from llama_index.core.schema import TextNode  # type: ignore
+from llama_index.core.schema import NodeRelationship, TextNode
 from llama_index.core.vector_stores.types import VectorStoreQuery
 from sqlalchemy import text
 from sqlalchemy.engine.row import RowMapping
@@ -30,7 +30,11 @@ DEFAULT_TABLE = "test_table" + str(uuid.uuid4())
 VECTOR_SIZE = 768
 
 texts = ["foo", "bar", "baz"]
-nodes = [TextNode(text=texts[i]) for i in range(len(texts))]
+embedding = [1.0] * VECTOR_SIZE
+nodes = [
+    TextNode(id_=str(uuid.uuid4()), text=texts[i], embedding=embedding)
+    for i in range(len(texts))
+]
 sync_method_exception_str = "Sync methods are not implemented for AsyncAlloyDBVectorStore. Use AlloyDBVectorStore interface instead."
 
 
@@ -45,6 +49,14 @@ async def aexecute(engine: AlloyDBEngine, query: str) -> None:
     async with engine._pool.connect() as conn:
         await conn.execute(text(query))
         await conn.commit()
+
+
+async def afetch(engine: AlloyDBEngine, query: str) -> Sequence[RowMapping]:
+    async with engine._pool.connect() as conn:
+        result = await conn.execute(text(query))
+        result_map = result.mappings()
+        result_fetch = result_map.fetchall()
+    return result_fetch
 
 
 @pytest.mark.asyncio(loop_scope="class")
@@ -162,6 +174,30 @@ class TestVectorStore:
                 table_name=DEFAULT_TABLE,
                 metadata_json_column=test_metadata_json_column,
             )
+
+    async def test_async_add(self, engine, vs):
+        # setting each node as their own parent
+        for node in nodes:
+            node.relationships[NodeRelationship.SOURCE] = node.as_related_node_info()
+
+        await vs.async_add(nodes)
+
+        results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
+        assert len(results) == 3
+
+    @pytest.mark.depends(on=["test_async_add"])
+    async def test_adelete(self, engine, vs):
+        await vs.adelete(nodes[0].node_id)
+
+        results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
+        assert len(results) == 2
+
+    @pytest.mark.depends(on=["test_adelete"])
+    async def test_aclear(self, engine, vs):
+        await vs.aclear()
+
+        results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
+        assert len(results) == 0
 
     async def test_add(self, vs):
         with pytest.raises(Exception, match=sync_method_exception_str):
