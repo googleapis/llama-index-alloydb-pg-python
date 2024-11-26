@@ -281,7 +281,7 @@ class TestEngineAsync:
                 "data_type": "character varying",
                 "is_nullable": "YES",
             },
-            {"column_name": "text", "data_type": "text", "is_nullable": "YES"},
+            {"column_name": "text", "data_type": "text", "is_nullable": "NO"},
         ]
         for row in results:
             assert row in expected
@@ -439,7 +439,7 @@ class TestEngineSync:
                 "data_type": "character varying",
                 "is_nullable": "YES",
             },
-            {"column_name": "text", "data_type": "text", "is_nullable": "YES"},
+            {"column_name": "text", "data_type": "text", "is_nullable": "NO"},
         ]
         for row in results:
             assert row in expected

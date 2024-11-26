@@ -560,8 +560,8 @@ class AlloyDBEngine:
         for column in metadata_columns:
             nullable = "NOT NULL" if not column.nullable else ""
             create_table_query += f',\n"{column.name}" {column.data_type} {nullable}'
-        if stores_text:
-            create_table_query += f""",\n"{text_column}" TEXT"""
+        nullable_text = "NOT NULL" if stores_text else ""
+        create_table_query += f""",\n"{text_column}" TEXT {nullable_text}"""
         create_table_query += "\n);"
         create_index_query = f"""CREATE INDEX "{table_name}_idx_ref_doc_id" ON "{schema_name}"."{table_name}" ("{ref_doc_id_column}");"""
 
