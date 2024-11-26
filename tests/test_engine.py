@@ -37,6 +37,7 @@ DEFAULT_VS_TABLE_SYNC = "vector_store_" + str(uuid.uuid4())
 VECTOR_SIZE = 768
 
 
+
 def get_env_var(key: str, desc: str) -> str:
     v = os.environ.get(key)
     if v is None:
@@ -481,3 +482,4 @@ class TestEngineSync:
             assert row in expected
         for row in expected:
             assert row in results
+
