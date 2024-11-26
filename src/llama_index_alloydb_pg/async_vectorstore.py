@@ -46,17 +46,6 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
 
     __create_key = object()
 
-    _engine: AsyncEngine
-    _table_name: str
-    _schema_name: str
-    _id_column: str
-    _text_column: str
-    _embedding_column: str
-    _metadata_json_column: str
-    _metadata_columns: List[str]
-    _ref_doc_id_column: str
-    _node_column: str
-
     def __init__(
         self,
         key: object,
@@ -94,9 +83,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             Exception: If called directly by user.
         """
         if key != AsyncAlloyDBVectorStore.__create_key:
-            raise Exception(
-                "Only create class through 'create' or 'create_sync' methods!"
-            )
+            raise Exception("Only create class through 'create' method!")
 
         # Delegate to Pydantic's __init__
         super().__init__(stores_text=stores_text, is_embedding_query=is_embedding_query)
@@ -126,7 +113,6 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         node_column: str = "node",
         stores_text: bool = True,
         is_embedding_query: bool = True,
-        perform_validation: bool = True,  # TODO: For testing only, remove after engine::init implementation
     ) -> AsyncAlloyDBVectorStore:
         """Create an AsyncAlloyDBVectorStore instance and validates the table schema.
 
@@ -150,49 +136,51 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         Returns:
             AsyncAlloyDBVectorStore
         """
-        # TODO: Only for testing, remove flag to always do validation after engine::init is implemented
-        if perform_validation:
-            stmt = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{table_name}' AND table_schema = '{schema_name}'"
-            async with engine._pool.connect() as conn:
-                result = await conn.execute(text(stmt))
-                result_map = result.mappings()
-                results = result_map.fetchall()
-            columns = {}
-            for field in results:
-                columns[field["column_name"]] = field["data_type"]
+        stmt = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{table_name}' AND table_schema = '{schema_name}'"
+        async with engine._pool.connect() as conn:
+            result = await conn.execute(text(stmt))
+            result_map = result.mappings()
+            results = result_map.fetchall()
+        columns = {}
+        for field in results:
+            columns[field["column_name"]] = field["data_type"]
 
-            # Check columns
-            if id_column not in columns:
-                raise ValueError(f"Id column, {id_column}, does not exist.")
-            if text_column not in columns:
-                raise ValueError(f"Content column, {text_column}, does not exist.")
-            content_type = columns[text_column]
-            if content_type != "text" and "char" not in content_type:
-                raise ValueError(
-                    f"Content column, {text_column}, is type, {content_type}. It must be a type of character string."
-                )
-            if embedding_column not in columns:
-                raise ValueError(
-                    f"Embedding column, {embedding_column}, does not exist."
-                )
-            if columns[embedding_column] != "USER-DEFINED":
-                raise ValueError(
-                    f"Embedding column, {embedding_column}, is not type Vector."
-                )
-            if columns[node_column] != "json":
-                raise ValueError(f"Node column, {node_column}, is not type JSON.")
-            if ref_doc_id_column not in columns:
-                raise ValueError(
-                    f"Reference Document Id column, {ref_doc_id_column}, does not exist."
-                )
-            if columns[metadata_json_column] != "jsonb":
-                raise ValueError(
-                    f"Metadata column, {metadata_json_column}, does not exist."
-                )
-            # If using metadata_columns check to make sure column exists
-            for column in metadata_columns:
-                if column not in columns:
-                    raise ValueError(f"Metadata column, {column}, does not exist.")
+        # Check columns
+        if id_column not in columns:
+            raise ValueError(f"Id column, {id_column}, does not exist.")
+        if text_column not in columns:
+            raise ValueError(f"Text column, {text_column}, does not exist.")
+        text_type = columns[text_column]
+        if text_type != "text" and "char" not in text_type:
+            raise ValueError(
+                f"Text column, {text_column}, is type, {text_type}. It must be a type of character string."
+            )
+        if embedding_column not in columns:
+            raise ValueError(f"Embedding column, {embedding_column}, does not exist.")
+        if columns[embedding_column] != "USER-DEFINED":
+            raise ValueError(
+                f"Embedding column, {embedding_column}, is not type Vector."
+            )
+        if node_column not in columns:
+            raise ValueError(f"Node column, {node_column}, does not exist.")
+        if columns[node_column] != "json":
+            raise ValueError(f"Node column, {node_column}, is not type JSON.")
+        if ref_doc_id_column not in columns:
+            raise ValueError(
+                f"Reference Document Id column, {ref_doc_id_column}, does not exist."
+            )
+        if metadata_json_column not in columns:
+            raise ValueError(
+                f"Metadata column, {metadata_json_column}, does not exist."
+            )
+        if columns[metadata_json_column] != "jsonb":
+            raise ValueError(
+                f"Metadata column, {metadata_json_column}, is not type JSONB."
+            )
+        # If using metadata_columns check to make sure column exists
+        for column in metadata_columns:
+            if column not in columns:
+                raise ValueError(f"Metadata column, {column}, does not exist.")
 
         return cls(
             cls.__create_key,
@@ -250,6 +238,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         filters: Optional[MetadataFilters] = None,
     ) -> List[BaseNode]:
         """Asynchronously get nodes from the table matching the provided nodes and filters."""
+        # TODO: complete implementation
         return []
 
     async def aquery(

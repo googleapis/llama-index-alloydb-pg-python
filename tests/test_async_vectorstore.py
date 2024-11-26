@@ -27,6 +27,7 @@ from llama_index_alloydb_pg import AlloyDBEngine
 from llama_index_alloydb_pg.async_vectorstore import AsyncAlloyDBVectorStore
 
 DEFAULT_TABLE = "test_table" + str(uuid.uuid4())
+VECTOR_SIZE = 768
 
 texts = ["foo", "bar", "baz"]
 nodes = [TextNode(text=texts[i]) for i in range(len(texts))]
@@ -38,6 +39,12 @@ def get_env_var(key: str, desc: str) -> str:
     if v is None:
         raise ValueError(f"Must set env var {key} to: {desc}")
     return v
+
+
+async def aexecute(engine: AlloyDBEngine, query: str) -> None:
+    async with engine._pool.connect() as conn:
+        await conn.execute(text(query))
+        await conn.commit()
 
 
 @pytest.mark.asyncio(loop_scope="class")
@@ -71,42 +78,89 @@ class TestVectorStore:
         return get_env_var("DB_PASSWORD", "database name on AlloyDB instance")
 
     @pytest_asyncio.fixture(scope="class")
-    async def engine(
-        self, db_project, db_region, db_cluster, db_instance, db_name, db_user, db_pwd
-    ):
+    async def engine(self, db_project, db_region, db_cluster, db_instance, db_name):
         engine = await AlloyDBEngine.afrom_instance(
             project_id=db_project,
             instance=db_instance,
             cluster=db_cluster,
             region=db_region,
             database=db_name,
-            user=db_user,
-            password=db_pwd,
         )
 
         yield engine
+        await aexecute(engine, f'DROP TABLE "{DEFAULT_TABLE}"')
         await engine.close()
 
     @pytest_asyncio.fixture(scope="class")
     async def vs(self, engine):
-        vs = await AsyncAlloyDBVectorStore.create(
-            engine, table_name=DEFAULT_TABLE, perform_validation=False
+        await engine._ainit_vector_store_table(
+            DEFAULT_TABLE, VECTOR_SIZE, overwrite_existing=True
         )
+        vs = await AsyncAlloyDBVectorStore.create(engine, table_name=DEFAULT_TABLE)
         yield vs
 
     async def test_init_with_constructor(self, engine):
         with pytest.raises(Exception):
             AsyncAlloyDBVectorStore(engine, table_name=DEFAULT_TABLE)
 
-    async def test_validate_columns_create(self, engine):
-        # TODO: add tests for more columns after engine::init is implemented
-        # currently, since there's no table first validation condition fails.
+    async def test_validate_id_column_create(self, engine, vs):
         test_id_column = "test_id_column"
         with pytest.raises(
             Exception, match=f"Id column, {test_id_column}, does not exist."
         ):
             await AsyncAlloyDBVectorStore.create(
-                engine, table_name="non_existing_table", id_column=test_id_column
+                engine, table_name=DEFAULT_TABLE, id_column=test_id_column
+            )
+
+    async def test_validate_text_column_create(self, engine, vs):
+        test_text_column = "test_text_column"
+        with pytest.raises(
+            Exception, match=f"Text column, {test_text_column}, does not exist."
+        ):
+            await AsyncAlloyDBVectorStore.create(
+                engine, table_name=DEFAULT_TABLE, text_column=test_text_column
+            )
+
+    async def test_validate_embedding_column_create(self, engine, vs):
+        test_embed_column = "test_embed_column"
+        with pytest.raises(
+            Exception, match=f"Embedding column, {test_embed_column}, does not exist."
+        ):
+            await AsyncAlloyDBVectorStore.create(
+                engine, table_name=DEFAULT_TABLE, embedding_column=test_embed_column
+            )
+
+    async def test_validate_node_column_create(self, engine, vs):
+        test_node_column = "test_node_column"
+        with pytest.raises(
+            Exception, match=f"Node column, {test_node_column}, does not exist."
+        ):
+            await AsyncAlloyDBVectorStore.create(
+                engine, table_name=DEFAULT_TABLE, node_column=test_node_column
+            )
+
+    async def test_validate_ref_doc_id_column_create(self, engine, vs):
+        test_ref_doc_id_column = "test_ref_doc_id_column"
+        with pytest.raises(
+            Exception,
+            match=f"Reference Document Id column, {test_ref_doc_id_column}, does not exist.",
+        ):
+            await AsyncAlloyDBVectorStore.create(
+                engine,
+                table_name=DEFAULT_TABLE,
+                ref_doc_id_column=test_ref_doc_id_column,
+            )
+
+    async def test_validate_metadata_json_column_create(self, engine, vs):
+        test_metadata_json_column = "test_metadata_json_column"
+        with pytest.raises(
+            Exception,
+            match=f"Metadata column, {test_metadata_json_column}, does not exist.",
+        ):
+            await AsyncAlloyDBVectorStore.create(
+                engine,
+                table_name=DEFAULT_TABLE,
+                metadata_json_column=test_metadata_json_column,
             )
 
     async def test_add(self, vs):
