@@ -114,7 +114,7 @@ class TestVectorStore:
         vs = await AsyncAlloyDBVectorStore.create(engine, table_name=DEFAULT_TABLE)
         yield vs
 
-    async def test_init_with_constructor(self, vs, engine):
+    async def test_init_with_constructor(self, engine):
         with pytest.raises(Exception):
             AsyncAlloyDBVectorStore(engine, table_name=DEFAULT_TABLE)
 
@@ -199,6 +199,8 @@ class TestVectorStore:
 
     @pytest.mark.depends(on=["test_async_add"])
     async def test_adelete(self, engine, vs):
+        await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
+        await vs.async_add(nodes)
         await self.print_results(engine, "StartingDelete")
         await vs.adelete(nodes[0].node_id)
         await self.print_results(engine, "FinishedDelete")
@@ -209,6 +211,8 @@ class TestVectorStore:
 
     @pytest.mark.depends(on=["test_adelete"])
     async def test_aclear(self, engine, vs):
+        await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
+        await vs.async_add(nodes)
         await self.print_results(engine, "StartingClear")
         await vs.aclear()
         await self.print_results(engine, "FinishedClear")
@@ -217,26 +221,26 @@ class TestVectorStore:
         assert len(results) == 0
         await self.print_results(engine, "FinishedClearTestAssert")
 
-    async def test_add(self, vs, engine):
+    async def test_add(self, vs):
         with pytest.raises(Exception, match=sync_method_exception_str):
             vs.add(nodes)
 
-    async def test_get_nodes(self, vs, engine):
+    async def test_get_nodes(self, vs):
         with pytest.raises(Exception, match=sync_method_exception_str):
             vs.get_nodes()
 
-    async def test_query(self, vs, engine):
+    async def test_query(self, vs):
         with pytest.raises(Exception, match=sync_method_exception_str):
             vs.query(VectorStoreQuery(query_str="foo"))
 
-    async def test_delete(self, vs, engine):
+    async def test_delete(self, vs):
         with pytest.raises(Exception, match=sync_method_exception_str):
             vs.delete("test_ref_doc_id")
 
-    async def test_delete_nodes(self, vs, engine):
+    async def test_delete_nodes(self, vs):
         with pytest.raises(Exception, match=sync_method_exception_str):
             vs.delete_nodes(["test_node_id"])
 
-    async def test_clear(self, vs, engine):
+    async def test_clear(self, vs):
         with pytest.raises(Exception, match=sync_method_exception_str):
             vs.clear()
