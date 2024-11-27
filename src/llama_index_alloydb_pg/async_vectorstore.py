@@ -228,15 +228,15 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             {self._ref_doc_id_column},
             {self._node_column}
             {metadata_col_names}
-        ) VALUES (:id, :text, :embedding, :metadata_json, :ref_doc_id, :node {metadata_col_values})
+        ) VALUES (:node_id, :text, :embedding, :li_metadata, :ref_doc_id, :node {metadata_col_values})
         """
         node_values_list = []
         for node in nodes:
             node_values = {
-                "id": node.node_id,
+                "node_id": node.node_id,
                 "text": node.get_content(metadata_mode=MetadataMode.NONE),
                 "embedding": str(node.get_embedding()),
-                "metadata_json": json.dumps(node.to_dict()["metadata"]),
+                "li_metadata": json.dumps(node.to_dict()["metadata"]),
                 "ref_doc_id": node.ref_doc_id,
                 "node": node.to_json(),
             }
