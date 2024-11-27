@@ -106,7 +106,7 @@ class TestVectorStore:
 
     @pytest_asyncio.fixture(scope="class")
     async def vs(self, engine):
-        print("\n## VS TABLE INITIALIZED ##\n")
+        print("\n## VsTableInitAttemptingTableCreation ##\n")
         await engine._ainit_vector_store_table(
             DEFAULT_TABLE, VECTOR_SIZE, overwrite_existing=True
         )
@@ -114,7 +114,7 @@ class TestVectorStore:
         vs = await AsyncAlloyDBVectorStore.create(engine, table_name=DEFAULT_TABLE)
         yield vs
 
-    async def test_init_with_constructor(self, engine):
+    async def test_init_with_constructor(self, vs, engine):
         with pytest.raises(Exception):
             AsyncAlloyDBVectorStore(engine, table_name=DEFAULT_TABLE)
 
@@ -217,26 +217,26 @@ class TestVectorStore:
         assert len(results) == 0
         await self.print_results(engine, "FinishedClearTestAssert")
 
-    async def test_add(self, vs):
+    async def test_add(self, vs, engine):
         with pytest.raises(Exception, match=sync_method_exception_str):
             vs.add(nodes)
 
-    async def test_get_nodes(self, vs):
+    async def test_get_nodes(self, vs, engine):
         with pytest.raises(Exception, match=sync_method_exception_str):
             vs.get_nodes()
 
-    async def test_query(self, vs):
+    async def test_query(self, vs, engine):
         with pytest.raises(Exception, match=sync_method_exception_str):
             vs.query(VectorStoreQuery(query_str="foo"))
 
-    async def test_delete(self, vs):
+    async def test_delete(self, vs, engine):
         with pytest.raises(Exception, match=sync_method_exception_str):
             vs.delete("test_ref_doc_id")
 
-    async def test_delete_nodes(self, vs):
+    async def test_delete_nodes(self, vs, engine):
         with pytest.raises(Exception, match=sync_method_exception_str):
             vs.delete_nodes(["test_node_id"])
 
-    async def test_clear(self, vs):
+    async def test_clear(self, vs, engine):
         with pytest.raises(Exception, match=sync_method_exception_str):
             vs.clear()
