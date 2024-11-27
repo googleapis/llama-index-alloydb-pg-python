@@ -1,4 +1,4 @@
-# AlloyDB for PostgreSQL for LlamaIndex
+AlloyDB for PostgreSQL for LlamaIndex
 ==================================================
 
 [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://ssh.cloud.google.com/cloudshell/editor?cloudshell_git_repo=GITHUB_URL)
