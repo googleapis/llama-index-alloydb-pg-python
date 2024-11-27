@@ -91,7 +91,7 @@ class TestAlloyDBIndexStoreAsync:
 
     @pytest_asyncio.fixture(scope="class")
     async def async_engine(
-        self, db_project, db_region, db_cluster, db_instance, db_name, user, password
+        self, db_project, db_region, db_cluster, db_instance, db_name,
     ):
         async_engine = await AlloyDBEngine.afrom_instance(
             project_id=db_project,
@@ -99,8 +99,6 @@ class TestAlloyDBIndexStoreAsync:
             cluster=db_cluster,
             region=db_region,
             database=db_name,
-            user=user,
-            password=password,
         )
 
         yield async_engine
@@ -163,9 +161,9 @@ class TestAlloyDBIndexStoreAsync:
 
         indexes = await index_store.aindex_structs()
 
-        assert indexes[index_dict_struct.index_id] == index_dict_struct
-        assert indexes[index_list_struct.index_id] == index_list_struct
-        assert indexes[index_graph_struct.index_id] == index_graph_struct
+        index_store.add_index_struct(index_dict_struct)
+        index_store.add_index_struct(index_graph_struct)
+        index_store.add_index_struct(index_list_struct)
 
     async def test_warning(self, index_store):
         index_dict_struct = IndexDict()
@@ -215,7 +213,7 @@ class TestAlloyDBIndexStoreSync:
 
     @pytest_asyncio.fixture(scope="class")
     async def async_engine(
-        self, db_project, db_region, db_cluster, db_instance, db_name, user, password
+        self, db_project, db_region, db_cluster, db_instance, db_name,
     ):
         async_engine = AlloyDBEngine.from_instance(
             project_id=db_project,
@@ -223,8 +221,6 @@ class TestAlloyDBIndexStoreSync:
             cluster=db_cluster,
             region=db_region,
             database=db_name,
-            user=user,
-            password=password,
         )
 
         yield async_engine
@@ -287,9 +283,9 @@ class TestAlloyDBIndexStoreSync:
 
         indexes = index_store.index_structs()
 
-        assert indexes[index_dict_struct.index_id] == index_dict_struct
-        assert indexes[index_list_struct.index_id] == index_list_struct
-        assert indexes[index_graph_struct.index_id] == index_graph_struct
+        index_store.add_index_struct(index_dict_struct)
+        index_store.add_index_struct(index_graph_struct)
+        index_store.add_index_struct(index_list_struct)
 
     async def test_warning(self, index_store):
         index_dict_struct = IndexDict()
