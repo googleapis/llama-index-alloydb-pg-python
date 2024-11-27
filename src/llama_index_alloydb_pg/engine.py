@@ -514,7 +514,7 @@ class AlloyDBEngine:
         metadata_json_column: str = "li_metadata",
         metadata_columns: List[Column] = [],
         ref_doc_id_column: str = "ref_doc_id",
-        node_column: str = "node",
+        node_column: str = "node_data",
         stores_text: bool = True,
         overwrite_existing: bool = False,
     ) -> None:
@@ -530,7 +530,7 @@ class AlloyDBEngine:
             metadata_json_column (str): Column to store metadata as JSON. Defaults to "li_metadata".
             metadata_columns (List[str]): Column(s) that represent extracted metadata keys in their own columns.
             ref_doc_id_column (str): Column that represents id of a node's parent document. Defaults to "ref_doc_id".
-            node_column (str): Column that represents the whole JSON node. Defaults to "node".
+            node_column (str): Column that represents the whole JSON node. Defaults to "node_data".
             stores_text (bool): Whether the table stores text. Defaults to "True".
             overwrite_existing (bool): Whether to drop existing table. Default: False.
 
@@ -587,7 +587,7 @@ class AlloyDBEngine:
         metadata_json_column: str = "li_metadata",
         metadata_columns: List[Column] = [],
         ref_doc_id_column: str = "ref_doc_id",
-        node_column: str = "node",
+        node_column: str = "node_data",
         stores_text: bool = True,
         overwrite_existing: bool = False,
     ) -> None:
@@ -603,7 +603,7 @@ class AlloyDBEngine:
             metadata_json_column (str): Column to store metadata as JSON. Defaults to "li_metadata".
             metadata_columns (List[str]): Column(s) that represent extracted metadata keys in their own columns.
             ref_doc_id_column (str): Column that represents id of a node's parent document. Defaults to "ref_doc_id".
-            node_column (str): Column that represents the whole JSON node. Defaults to "node".
+            node_column (str): Column that represents the whole JSON node. Defaults to "node_data".
             stores_text (bool): Whether the table stores text. Defaults to "True".
             overwrite_existing (bool): Whether to drop existing table. Default: False.
 
@@ -638,7 +638,7 @@ class AlloyDBEngine:
         metadata_json_column: str = "li_metadata",
         metadata_columns: List[Column] = [],
         ref_doc_id_column: str = "ref_doc_id",
-        node_column: str = "node",
+        node_column: str = "node_data",
         stores_text: bool = True,
         overwrite_existing: bool = False,
     ) -> None:
@@ -654,7 +654,7 @@ class AlloyDBEngine:
             metadata_json_column (str): Column to store metadata as JSON. Defaults to "li_metadata".
             metadata_columns (List[str]): Column(s) that represent extracted metadata keys in their own columns.
             ref_doc_id_column (str): Column that represents id of a node's parent document. Defaults to "ref_doc_id".
-            node_column (str): Column that represents the whole JSON node. Defaults to "node".
+            node_column (str): Column that represents the whole JSON node. Defaults to "node_data".
             stores_text (bool): Whether the table stores text. Defaults to "True".
             overwrite_existing (bool): Whether to drop existing table. Default: False.
 
