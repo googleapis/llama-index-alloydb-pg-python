@@ -187,7 +187,6 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
                     f"node_id {node.node_id} already exists. "
                     "Set allow_update to True to overwrite."
                 )
-            node_row = None
 
             id = node.node_id
             data = doc_to_json(node)
@@ -321,6 +320,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             all_ref_doc_infos[doc_id] = ref_doc_info
         return all_ref_doc_infos
 
+    # This method is not part of the base class, but it has been introduced for the user's convenience.
     async def aref_doc_exists(self, ref_doc_id: str) -> bool:
         """Check if a ref_doc_id has been ingested.
 
@@ -527,6 +527,7 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             "Sync methods are not implemented for AsyncAlloyDBDocumentStore. Use AlloyDBDocumentStore  interface instead."
         )
 
+    # This method is not part of the base class, but it has been introduced for the user's convenience.
     def ref_doc_exists(self, ref_doc_id: str) -> bool:
         raise NotImplementedError(
             "Sync methods are not implemented for AsyncAlloyDBDocumentStore. Use AlloyDBDocumentStore  interface instead."
