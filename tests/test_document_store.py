@@ -90,7 +90,7 @@ class TestAlloyDBDocumentStoreAsync:
 
     @pytest_asyncio.fixture(scope="class")
     async def async_engine(
-        self, db_project, db_region, db_cluster, db_instance, db_name, user, password
+        self, db_project, db_region, db_cluster, db_instance, db_name,
     ):
         async_engine = await AlloyDBEngine.afrom_instance(
             project_id=db_project,
@@ -98,8 +98,6 @@ class TestAlloyDBDocumentStoreAsync:
             cluster=db_cluster,
             region=db_region,
             database=db_name,
-            user=user,
-            password=password,
         )
 
         yield async_engine
@@ -391,7 +389,7 @@ class TestAlloyDBDocumentStoreSync:
 
     @pytest_asyncio.fixture(scope="class")
     async def sync_engine(
-        self, db_project, db_region, db_cluster, db_instance, db_name, user, password
+        self, db_project, db_region, db_cluster, db_instance, db_name,
     ):
         sync_engine = AlloyDBEngine.from_instance(
             project_id=db_project,
@@ -399,8 +397,6 @@ class TestAlloyDBDocumentStoreSync:
             cluster=db_cluster,
             region=db_region,
             database=db_name,
-            user=user,
-            password=password,
         )
 
         yield sync_engine
