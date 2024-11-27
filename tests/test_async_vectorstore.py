@@ -100,14 +100,17 @@ class TestVectorStore:
         )
 
         yield engine
+        await self.print_results(engine, "EngineClearingTable")
         await aexecute(engine, f'DROP TABLE "{DEFAULT_TABLE}"')
         await engine.close()
 
     @pytest_asyncio.fixture(scope="class")
     async def vs(self, engine):
+        print("\n## VS TABLE INITIALIZED ##\n")
         await engine._ainit_vector_store_table(
             DEFAULT_TABLE, VECTOR_SIZE, overwrite_existing=True
         )
+        await self.print_results(engine, "VsTableInit")
         vs = await AsyncAlloyDBVectorStore.create(engine, table_name=DEFAULT_TABLE)
         yield vs
 
@@ -177,7 +180,7 @@ class TestVectorStore:
 
     async def print_results(self, engine, log_entry=""):
         results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
-        print(f"\n## {log_entry}: Found {len(results)} results.")
+        print(f"\n## {log_entry}: Found {len(results)} results in {DEFAULT_TABLE}.")
         for result in results:
             print(result["node_id"])
 
