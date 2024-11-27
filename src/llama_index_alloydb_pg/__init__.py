@@ -13,5 +13,6 @@
 # limitations under the License.
 
 from .engine import AlloyDBEngine, Column
+from .index_store import AlloyDBIndexStore
 
-_all = ["AlloyDBEngine", "Column"]
+_all = ["AlloyDBEngine", "Column", "AlloyDBIndexStore"]
