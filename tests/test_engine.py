@@ -278,7 +278,7 @@ class TestEngineAsync:
                 "data_type": "USER-DEFINED",
                 "is_nullable": "YES",
             },
-            {"column_name": "node", "data_type": "json", "is_nullable": "NO"},
+            {"column_name": "node_data", "data_type": "json", "is_nullable": "NO"},
             {
                 "column_name": "ref_doc_id",
                 "data_type": "character varying",
@@ -453,7 +453,7 @@ class TestEngineSync:
                 "data_type": "USER-DEFINED",
                 "is_nullable": "YES",
             },
-            {"column_name": "node", "data_type": "json", "is_nullable": "NO"},
+            {"column_name": "node_data", "data_type": "json", "is_nullable": "NO"},
             {
                 "column_name": "ref_doc_id",
                 "data_type": "character varying",

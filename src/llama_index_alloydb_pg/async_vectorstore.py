@@ -58,7 +58,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         metadata_json_column: str = "li_metadata",
         metadata_columns: List[str] = [],
         ref_doc_id_column: str = "ref_doc_id",
-        node_column: str = "node",
+        node_column: str = "node_data",
         stores_text: bool = True,
         is_embedding_query: bool = True,
     ):
@@ -74,7 +74,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             metadata_json_column (str): Column to store metadata as JSON. Defaults to "li_metadata".
             metadata_columns (List[str]): Column(s) that represent extracted metadata keys in their own columns.
             ref_doc_id_column (str): Column that represents id of a node's parent document. Defaults to "ref_doc_id".
-            node_column (str): Column that represents the whole JSON node. Defaults to "node".
+            node_column (str): Column that represents the whole JSON node. Defaults to "node_data".
             stores_text (bool): Whether the table stores text. Defaults to "True".
             is_embedding_query (bool): Whether the table query can have embeddings. Defaults to "True".
 
@@ -110,7 +110,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         metadata_json_column: str = "li_metadata",
         metadata_columns: List[str] = [],
         ref_doc_id_column: str = "ref_doc_id",
-        node_column: str = "node",
+        node_column: str = "node_data",
         stores_text: bool = True,
         is_embedding_query: bool = True,
     ) -> AsyncAlloyDBVectorStore:
@@ -126,7 +126,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             metadata_json_column (str): Column to store metadata as JSON. Defaults to "li_metadata".
             metadata_columns (List[str]): Column(s) that represent extracted metadata keys in their own columns.
             ref_doc_id_column (str): Column that represents id of a node's parent document. Defaults to "ref_doc_id".
-            node_column (str): Column that represents the whole JSON node. Defaults to "node".
+            node_column (str): Column that represents the whole JSON node. Defaults to "node_data".
             stores_text (bool): Whether the table stores text. Defaults to "True".
             is_embedding_query (bool): Whether the table query can have embeddings. Defaults to "True".
 
@@ -228,7 +228,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             {self._ref_doc_id_column},
             {self._node_column}
             {metadata_col_names}
-        ) VALUES (:node_id, :text, :embedding, :li_metadata, :ref_doc_id, :node {metadata_col_values})
+        ) VALUES (:node_id, :text, :embedding, :li_metadata, :ref_doc_id, :node_data {metadata_col_values})
         """
         node_values_list = []
         for node in nodes:
@@ -238,7 +238,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
                 "embedding": str(node.get_embedding()),
                 "li_metadata": json.dumps(node.to_dict()["metadata"]),
                 "ref_doc_id": node.ref_doc_id,
-                "node": node.to_json(),
+                "node_data": node.to_json(),
             }
             for metadata_column in self._metadata_columns:
                 node_values[metadata_column] = node.metadata.get(metadata_column)
