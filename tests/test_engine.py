@@ -113,6 +113,7 @@ class TestEngineAsync:
         )
         yield engine
         await aexecute(engine, f'DROP TABLE "{DEFAULT_DS_TABLE}"')
+        await aexecute(engine, f'DROP TABLE "{DEFAULT_IS_TABLE}"')
         await engine.close()
 
     async def test_password(
@@ -318,6 +319,7 @@ class TestEngineSync:
         )
         yield engine
         await aexecute(engine, f'DROP TABLE "{DEFAULT_DS_TABLE_SYNC}"')
+        await aexecute(engine, f'DROP TABLE "{DEFAULT_IS_TABLE_SYNC}"')
         await engine.close()
 
     async def test_password(

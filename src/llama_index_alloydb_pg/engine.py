@@ -534,10 +534,8 @@ class AlloyDBEngine:
             type VARCHAR NOT NULL,
             index_data JSONB NOT NULL
         );"""
-        create_index_query = f"""CREATE INDEX "{table_name}_idx_index_id" ON "{schema_name}"."{table_name}" (index_id);"""
         async with self._pool.connect() as conn:
             await conn.execute(text(create_table_query))
-            await conn.execute(text(create_index_query))
             await conn.commit()
 
     async def ainit_index_store_table(
