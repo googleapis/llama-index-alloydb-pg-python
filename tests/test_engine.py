@@ -119,6 +119,7 @@ class TestEngineAsync:
         await aexecute(engine, f'DROP TABLE "{DEFAULT_DS_TABLE}"')
         await aexecute(engine, f'DROP TABLE "{DEFAULT_IS_TABLE}"')
         await aexecute(engine, f'DROP TABLE "{DEFAULT_VS_TABLE}"')
+        await aexecute(engine, f'DROP TABLE "{DEFAULT_IS_TABLE}"')
         await engine.close()
 
     async def test_password(
@@ -258,22 +259,6 @@ class TestEngineAsync:
         for row in results:
             assert row in expected
 
-    async def test_init_index_store(self, engine):
-        await engine.ainit_index_store_table(
-            table_name=DEFAULT_IS_TABLE,
-            schema_name="public",
-            overwrite_existing=True,
-        )
-        stmt = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{DEFAULT_IS_TABLE}';"
-        results = await afetch(engine, stmt)
-        expected = [
-            {"column_name": "index_id", "data_type": "character varying"},
-            {"column_name": "type", "data_type": "character varying"},
-            {"column_name": "index_data", "data_type": "jsonb"},
-        ]
-        for row in results:
-            assert row in expected
-
     async def test_init_vector_store(self, engine):
         await engine.ainit_vector_store_table(
             table_name=DEFAULT_VS_TABLE,
@@ -307,6 +292,22 @@ class TestEngineAsync:
             assert row in expected
         for row in expected:
             assert row in results
+
+    async def test_init_index_store(self, engine):
+        await engine.ainit_index_store_table(
+            table_name=DEFAULT_IS_TABLE,
+            schema_name="public",
+            overwrite_existing=True,
+        )
+        stmt = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{DEFAULT_IS_TABLE}';"
+        results = await afetch(engine, stmt)
+        expected = [
+            {"column_name": "index_id", "data_type": "character varying"},
+            {"column_name": "type", "data_type": "character varying"},
+            {"column_name": "index_data", "data_type": "jsonb"},
+        ]
+        for row in results:
+            assert row in expected
 
 
 @pytest.mark.asyncio
@@ -360,6 +361,7 @@ class TestEngineSync:
         await aexecute(engine, f'DROP TABLE "{DEFAULT_DS_TABLE_SYNC}"')
         await aexecute(engine, f'DROP TABLE "{DEFAULT_IS_TABLE_SYNC}"')
         await aexecute(engine, f'DROP TABLE "{DEFAULT_VS_TABLE_SYNC}"')
+        await aexecute(engine, f'DROP TABLE "{DEFAULT_IS_TABLE_SYNC}"')
         await engine.close()
 
     async def test_password(
@@ -433,22 +435,6 @@ class TestEngineSync:
         for row in results:
             assert row in expected
 
-    async def test_init_index_store(self, engine):
-        engine.init_index_store_table(
-            table_name=DEFAULT_IS_TABLE_SYNC,
-            schema_name="public",
-            overwrite_existing=True,
-        )
-        stmt = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{DEFAULT_IS_TABLE_SYNC}';"
-        results = await afetch(engine, stmt)
-        expected = [
-            {"column_name": "index_id", "data_type": "character varying"},
-            {"column_name": "type", "data_type": "character varying"},
-            {"column_name": "index_data", "data_type": "jsonb"},
-        ]
-        for row in results:
-            assert row in expected
-
     async def test_init_vector_store(self, engine):
         engine.init_vector_store_table(
             table_name=DEFAULT_VS_TABLE_SYNC,
@@ -483,3 +469,18 @@ class TestEngineSync:
         for row in expected:
             assert row in results
 
+    async def test_init_index_store(self, engine):
+        engine.init_index_store_table(
+            table_name=DEFAULT_IS_TABLE_SYNC,
+            schema_name="public",
+            overwrite_existing=True,
+        )
+        stmt = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{DEFAULT_IS_TABLE_SYNC}';"
+        results = await afetch(engine, stmt)
+        expected = [
+            {"column_name": "index_id", "data_type": "character varying"},
+            {"column_name": "type", "data_type": "character varying"},
+            {"column_name": "index_data", "data_type": "jsonb"},
+        ]
+        for row in results:
+            assert row in expected
