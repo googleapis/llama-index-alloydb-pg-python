@@ -424,6 +424,8 @@ class AlloyDBEngine:
             table_name (str): The table name to store documents.
             schema_name (str): The schema name to store the documents table.
                 Default: "public".
+            overwrite_existing (bool): Whether to drop existing table.
+                Default: False.
 
         Returns:
             None
@@ -461,6 +463,8 @@ class AlloyDBEngine:
             table_name (str): The table name to store documents.
             schema_name (str): The schema name to store the documents table.
                 Default: "public".
+            overwrite_existing (bool): Whether to drop existing table.
+                Default: False.
 
         Returns:
             None
@@ -485,12 +489,278 @@ class AlloyDBEngine:
             table_name (str): The table name to store documents.
             schema_name (str): The schema name to store the documents table.
                 Default: "public".
+            overwrite_existing (bool): Whether to drop existing table.
+                Default: False.
 
         Returns:
             None
         """
         self._run_as_sync(
             self._ainit_doc_store_table(
+                table_name,
+                schema_name,
+                overwrite_existing,
+            )
+        )
+
+    async def _ainit_vector_store_table(
+        self,
+        table_name: str,
+        vector_size: int,
+        schema_name: str = "public",
+        id_column: Union[str, Column] = "node_id",
+        text_column: str = "text",
+        embedding_column: str = "embedding",
+        metadata_json_column: str = "li_metadata",
+        metadata_columns: List[Column] = [],
+        ref_doc_id_column: str = "ref_doc_id",
+        node_column: str = "node",
+        stores_text: bool = True,
+        overwrite_existing: bool = False,
+    ) -> None:
+        """Create an AlloyDB table for the VectorStore.
+
+        Args:
+            table_name (str): The table name to store nodes with embedding vectors.
+            vector_size (int): Vector size for the embedding model to be used.
+            schema_name (str): The schema name to store the vector store table. Default: "public".
+            id_column (str): Column that represents if of a Node. Defaults to "node_id".
+            text_column (str): Column that represent text content of a Node. Defaults to "text".
+            embedding_column (str): Column for embedding vectors. The embedding is generated from the content of Node. Defaults to "embedding".
+            metadata_json_column (str): Column to store metadata as JSON. Defaults to "li_metadata".
+            metadata_columns (List[str]): Column(s) that represent extracted metadata keys in their own columns.
+            ref_doc_id_column (str): Column that represents id of a node's parent document. Defaults to "ref_doc_id".
+            node_column (str): Column that represents the whole JSON node. Defaults to "node".
+            stores_text (bool): Whether the table stores text. Defaults to "True".
+            overwrite_existing (bool): Whether to drop existing table. Default: False.
+
+        Returns:
+            None
+
+        Raises:
+            :class:`DuplicateTableError <asyncpg.exceptions.DuplicateTableError>`: if table already exists.
+            :class:`UndefinedObjectError <asyncpg.exceptions.UndefinedObjectError>`: if the data type of the id column is not a postgreSQL data type.
+        """
+        async with self._pool.connect() as conn:
+            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+            await conn.commit()
+
+        if overwrite_existing:
+            async with self._pool.connect() as conn:
+                await conn.execute(
+                    text(f'DROP TABLE IF EXISTS "{schema_name}"."{table_name}"')
+                )
+                await conn.commit()
+
+        id_data_type = "VARCHAR" if isinstance(id_column, str) else id_column.data_type
+        id_column_name = id_column if isinstance(id_column, str) else id_column.name
+
+        create_table_query = f"""CREATE TABLE "{schema_name}"."{table_name}"(
+            "{id_column_name}" {id_data_type} PRIMARY KEY,
+            "{metadata_json_column}" JSONB NOT NULL,
+            "{embedding_column}" vector({vector_size}),
+            "{node_column}" JSON NOT NULL,
+            "{ref_doc_id_column}" VARCHAR
+            """
+
+        for column in metadata_columns:
+            nullable = "NOT NULL" if not column.nullable else ""
+            create_table_query += f',\n"{column.name}" {column.data_type} {nullable}'
+        nullable_text = "NOT NULL" if stores_text else ""
+        create_table_query += f""",\n"{text_column}" TEXT {nullable_text}"""
+        create_table_query += "\n);"
+        create_index_query = f"""CREATE INDEX "{table_name}_idx_ref_doc_id" ON "{schema_name}"."{table_name}" ("{ref_doc_id_column}");"""
+
+        async with self._pool.connect() as conn:
+            await conn.execute(text(create_table_query))
+            await conn.execute(text(create_index_query))
+            await conn.commit()
+
+    async def ainit_vector_store_table(
+        self,
+        table_name: str,
+        vector_size: int,
+        schema_name: str = "public",
+        id_column: Union[str, Column] = "node_id",
+        text_column: str = "text",
+        embedding_column: str = "embedding",
+        metadata_json_column: str = "li_metadata",
+        metadata_columns: List[Column] = [],
+        ref_doc_id_column: str = "ref_doc_id",
+        node_column: str = "node",
+        stores_text: bool = True,
+        overwrite_existing: bool = False,
+    ) -> None:
+        """Create an AlloyDB table for the VectorStore.
+
+        Args:
+            table_name (str): The table name to store nodes with embedding vectors.
+            vector_size (int): Vector size for the embedding model to be used.
+            schema_name (str): The schema name to store the vector store table. Default: "public".
+            id_column (str): Column that represents if of a Node. Defaults to "node_id".
+            text_column (str): Column that represent text content of a Node. Defaults to "text".
+            embedding_column (str): Column for embedding vectors. The embedding is generated from the content of Node. Defaults to "embedding".
+            metadata_json_column (str): Column to store metadata as JSON. Defaults to "li_metadata".
+            metadata_columns (List[str]): Column(s) that represent extracted metadata keys in their own columns.
+            ref_doc_id_column (str): Column that represents id of a node's parent document. Defaults to "ref_doc_id".
+            node_column (str): Column that represents the whole JSON node. Defaults to "node".
+            stores_text (bool): Whether the table stores text. Defaults to "True".
+            overwrite_existing (bool): Whether to drop existing table. Default: False.
+
+        Returns:
+            None
+        """
+        await self._run_as_async(
+            self._ainit_vector_store_table(
+                table_name,
+                vector_size,
+                schema_name,
+                id_column,
+                text_column,
+                embedding_column,
+                metadata_json_column,
+                metadata_columns,
+                ref_doc_id_column,
+                node_column,
+                stores_text,
+                overwrite_existing,
+            )
+        )
+
+    def init_vector_store_table(
+        self,
+        table_name: str,
+        vector_size: int,
+        schema_name: str = "public",
+        id_column: Union[str, Column] = "node_id",
+        text_column: str = "text",
+        embedding_column: str = "embedding",
+        metadata_json_column: str = "li_metadata",
+        metadata_columns: List[Column] = [],
+        ref_doc_id_column: str = "ref_doc_id",
+        node_column: str = "node",
+        stores_text: bool = True,
+        overwrite_existing: bool = False,
+    ) -> None:
+        """Create an AlloyDB table for the VectorStore.
+
+        Args:
+            table_name (str): The table name to store nodes with embedding vectors.
+            vector_size (int): Vector size for the embedding model to be used.
+            schema_name (str): The schema name to store the vector store table. Default: "public".
+            id_column (str): Column that represents if of a Node. Defaults to "node_id".
+            text_column (str): Column that represent text content of a Node. Defaults to "text".
+            embedding_column (str): Column for embedding vectors. The embedding is generated from the content of Node. Defaults to "embedding".
+            metadata_json_column (str): Column to store metadata as JSON. Defaults to "li_metadata".
+            metadata_columns (List[str]): Column(s) that represent extracted metadata keys in their own columns.
+            ref_doc_id_column (str): Column that represents id of a node's parent document. Defaults to "ref_doc_id".
+            node_column (str): Column that represents the whole JSON node. Defaults to "node".
+            stores_text (bool): Whether the table stores text. Defaults to "True".
+            overwrite_existing (bool): Whether to drop existing table. Default: False.
+
+        Returns:
+            None
+        """
+        self._run_as_sync(
+            self._ainit_vector_store_table(
+                table_name,
+                vector_size,
+                schema_name,
+                id_column,
+                text_column,
+                embedding_column,
+                metadata_json_column,
+                metadata_columns,
+                ref_doc_id_column,
+                node_column,
+                stores_text,
+                overwrite_existing,
+            )
+        )
+
+    async def _ainit_index_store_table(
+        self,
+        table_name: str,
+        schema_name: str = "public",
+        overwrite_existing: bool = False,
+    ) -> None:
+        """
+        Create an AlloyDB table to save Index metadata.
+
+        Args:
+            table_name (str): The table name to store index metadata.
+            schema_name (str): The schema name to store the index metadata table.
+                Default: "public".
+            overwrite_existing (bool): Whether to drop existing table.
+                Default: False.
+
+        Returns:
+            None
+        """
+        if overwrite_existing:
+            async with self._pool.connect() as conn:
+                await conn.execute(
+                    text(f'DROP TABLE IF EXISTS "{schema_name}"."{table_name}"')
+                )
+                await conn.commit()
+
+        create_table_query = f"""CREATE TABLE "{schema_name}"."{table_name}"(
+            index_id VARCHAR PRIMARY KEY,
+            type VARCHAR NOT NULL,
+            index_data JSONB NOT NULL
+        );"""
+        async with self._pool.connect() as conn:
+            await conn.execute(text(create_table_query))
+            await conn.commit()
+
+    async def ainit_index_store_table(
+        self,
+        table_name: str,
+        schema_name: str = "public",
+        overwrite_existing: bool = False,
+    ) -> None:
+        """
+        Create an AlloyDB table to save Index metadata.
+
+        Args:
+            table_name (str): The table name to store index metadata.
+            schema_name (str): The schema name to store the index metadata table.
+                Default: "public".
+            overwrite_existing (bool): Whether to drop existing table.
+                Default: False.
+
+        Returns:
+            None
+        """
+        await self._run_as_async(
+            self._ainit_index_store_table(
+                table_name,
+                schema_name,
+                overwrite_existing,
+            )
+        )
+
+    def init_index_store_table(
+        self,
+        table_name: str,
+        schema_name: str = "public",
+        overwrite_existing: bool = False,
+    ) -> None:
+        """
+        Create an AlloyDB table to save Index metadata.
+
+        Args:
+            table_name (str): The table name to store index metadata.
+            schema_name (str): The schema name to store the index metadata table.
+                Default: "public".
+            overwrite_existing (bool): Whether to drop existing table.
+                Default: False.
+
+        Returns:
+            None
+        """
+        self._run_as_sync(
+            self._ainit_index_store_table(
                 table_name,
                 schema_name,
                 overwrite_existing,
