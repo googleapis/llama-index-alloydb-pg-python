@@ -42,8 +42,7 @@ class AlloyDBDocumentStore(BaseDocumentStore):
             key (object): Key to prevent direct constructor usage.
             engine (AlloyDBEngine): Database connection pool.
             table_name (str): Table name that stores the documents.
-            schema_name (str): The schema name where the table is located. Defaults to "public"
-            batch_size (str): The default batch size for bulk inserts. Defaults to 1.
+            schema_name (str): The schema name where the table is located. Defaults to "public".
 
         Raises:
             Exception: If constructor is directly called by the user.
