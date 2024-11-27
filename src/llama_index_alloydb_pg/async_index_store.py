@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 from typing import List, Optional
+import warnings
 
 from llama_index.core.constants import DATA_KEY
 from llama_index.core.data_structs.data_structs import IndexStruct
@@ -174,6 +175,7 @@ class AsyncAlloyDBIndexStore(BaseIndexStore):
             structs = await self.aindex_structs()
             if len(structs) == 1:
                 return structs[0]
+            warnings.warn("No struct_id specified and more than one struct exists.")
             return None
         else:
             query = f"""SELECT * from "{self._schema_name}"."{self._table_name}" WHERE index_id = '{struct_id}';"""
