@@ -15,8 +15,8 @@
 from __future__ import annotations
 
 import json
-from typing import List, Optional
 import warnings
+from typing import List, Optional
 
 from llama_index.core.constants import DATA_KEY
 from llama_index.core.data_structs.data_structs import IndexStruct

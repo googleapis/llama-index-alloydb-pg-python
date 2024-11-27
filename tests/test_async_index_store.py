@@ -14,8 +14,8 @@
 
 import os
 import uuid
-from typing import Sequence
 import warnings
+from typing import Sequence
 
 import pytest
 import pytest_asyncio
@@ -163,7 +163,9 @@ class TestAsyncAlloyDBIndexStore:
         await index_store.aadd_index_struct(index_list_struct)
 
         with warnings.catch_warnings(record=True) as w:
-          index_struct = await index_store.aget_index_struct()
+            index_struct = await index_store.aget_index_struct()
 
-          assert len(w) == 1
-          assert "No struct_id specified and more than one struct exists." in str(w[-1].message)
+            assert len(w) == 1
+            assert "No struct_id specified and more than one struct exists." in str(
+                w[-1].message
+            )
