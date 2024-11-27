@@ -74,9 +74,7 @@ class AlloyDBIndexStore(BaseIndexStore):
         Returns:
             AlloyDBIndexStore: A newly created instance of AlloyDBIndexStore.
         """
-        coro = AsyncAlloyDBIndexStore.create(
-            engine, table_name, schema_name
-        )
+        coro = AsyncAlloyDBIndexStore.create(engine, table_name, schema_name)
         index_store = await engine._run_as_async(coro)
         return cls(cls.__create_key, engine, index_store)
 
@@ -102,9 +100,7 @@ class AlloyDBIndexStore(BaseIndexStore):
         Returns:
             AlloyDBIndexStore: A newly created instance of AlloyDBIndexStore.
         """
-        coro = AsyncAlloyDBIndexStore.create(
-            engine, table_name, schema_name
-        )
+        coro = AsyncAlloyDBIndexStore.create(engine, table_name, schema_name)
         index_store = engine._run_as_sync(coro)
         return cls(cls.__create_key, engine, index_store)
 
