@@ -175,29 +175,44 @@ class TestVectorStore:
                 metadata_json_column=test_metadata_json_column,
             )
 
+    async def print_results(self, engine, log_entry=""):
+        results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
+        print(f"\n## {log_entry}: Found {len(results)} results.")
+        for result in results:
+            print(result["node_id"])
+
     async def test_async_add(self, engine, vs):
         # setting each node as their own parent
         for node in nodes:
             node.relationships[NodeRelationship.SOURCE] = node.as_related_node_info()
 
+        await self.print_results(engine, "StartingAdd")
         await vs.async_add(nodes)
+        await self.print_results(engine, "FinishedAdd")
 
         results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
         assert len(results) == 3
+        await self.print_results(engine, "FinishedAddTestAssert")
 
     @pytest.mark.depends(on=["test_async_add"])
     async def test_adelete(self, engine, vs):
+        await self.print_results(engine, "StartingDelete")
         await vs.adelete(nodes[0].node_id)
+        await self.print_results(engine, "FinishedDelete")
 
         results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
         assert len(results) == 2
+        await self.print_results(engine, "FinishedDeleteTestAssert")
 
     @pytest.mark.depends(on=["test_adelete"])
     async def test_aclear(self, engine, vs):
+        await self.print_results(engine, "StartingClear")
         await vs.aclear()
+        await self.print_results(engine, "FinishedClear")
 
         results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
         assert len(results) == 0
+        await self.print_results(engine, "FinishedClearTestAssert")
 
     async def test_add(self, vs):
         with pytest.raises(Exception, match=sync_method_exception_str):
