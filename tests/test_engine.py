@@ -30,20 +30,11 @@ from llama_index_alloydb_pg import AlloyDBEngine, Column
 
 DEFAULT_DS_TABLE = "document_store_" + str(uuid.uuid4())
 DEFAULT_DS_TABLE_SYNC = "document_store_" + str(uuid.uuid4())
-<<<<<<< HEAD
 DEFAULT_IS_TABLE = "index_store_" + str(uuid.uuid4())
 DEFAULT_IS_TABLE_SYNC = "index_store_" + str(uuid.uuid4())
 DEFAULT_VS_TABLE = "vector_store_" + str(uuid.uuid4())
 DEFAULT_VS_TABLE_SYNC = "vector_store_" + str(uuid.uuid4())
 VECTOR_SIZE = 768
-
-=======
-DEFAULT_VS_TABLE = "vector_store_" + str(uuid.uuid4())
-DEFAULT_VS_TABLE_SYNC = "vector_store_" + str(uuid.uuid4())
-VECTOR_SIZE = 768
-DEFAULT_IS_TABLE = "index_store_" + str(uuid.uuid4())
-DEFAULT_IS_TABLE_SYNC = "index_store_" + str(uuid.uuid4())
->>>>>>> 8e3b69b (Rebase)
 
 
 def get_env_var(key: str, desc: str) -> str:
@@ -125,7 +116,6 @@ class TestEngineAsync:
         )
         yield engine
         await aexecute(engine, f'DROP TABLE "{DEFAULT_DS_TABLE}"')
-        await aexecute(engine, f'DROP TABLE "{DEFAULT_IS_TABLE}"')
         await aexecute(engine, f'DROP TABLE "{DEFAULT_VS_TABLE}"')
         await aexecute(engine, f'DROP TABLE "{DEFAULT_IS_TABLE}"')
         await engine.close()
@@ -369,7 +359,6 @@ class TestEngineSync:
         await aexecute(engine, f'DROP TABLE "{DEFAULT_DS_TABLE_SYNC}"')
         await aexecute(engine, f'DROP TABLE "{DEFAULT_IS_TABLE_SYNC}"')
         await aexecute(engine, f'DROP TABLE "{DEFAULT_VS_TABLE_SYNC}"')
-        await aexecute(engine, f'DROP TABLE "{DEFAULT_IS_TABLE_SYNC}"')
         await engine.close()
 
     async def test_password(
