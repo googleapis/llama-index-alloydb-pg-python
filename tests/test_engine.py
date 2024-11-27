@@ -307,6 +307,7 @@ class TestEngineAsync:
         for row in results:
             assert row in expected
 
+
 @pytest.mark.asyncio
 class TestEngineSync:
     @pytest.fixture(scope="module")
@@ -480,4 +481,3 @@ class TestEngineSync:
         ]
         for row in results:
             assert row in expected
- 
