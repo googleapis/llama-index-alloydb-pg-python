@@ -185,8 +185,9 @@ class TestVectorStore:
         results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
         assert len(results) == 3
 
-    @pytest.mark.depends(on=["test_async_add"])
     async def test_adelete(self, engine, vs):
+        # Note: To be migrated to a pytest dependency on test_async_add
+        # Blocked due to unexpected fixtures reloads while running integration test suite
         await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
         await vs.async_add(nodes)
         await vs.adelete(nodes[0].node_id)
@@ -194,8 +195,9 @@ class TestVectorStore:
         results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
         assert len(results) == 2
 
-    @pytest.mark.depends(on=["test_adelete"])
     async def test_aclear(self, engine, vs):
+        # Note: To be migrated to a pytest dependency on test_adelete
+        # Blocked due to unexpected fixtures reloads while running integration test suite
         await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
         await vs.async_add(nodes)
         await vs.aclear()
