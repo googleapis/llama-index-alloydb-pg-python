@@ -14,6 +14,7 @@
 
 import os
 import uuid
+import warnings
 from typing import Sequence
 
 import pytest
@@ -112,6 +113,21 @@ class TestAsyncAlloyDBDocumentStore:
         with pytest.raises(Exception):
             AsyncAlloyDBDocumentStore(
                 engine=async_engine, table_name=default_table_name_async
+            )
+
+    async def test_warning(self, doc_store):
+        # Create and add documents into the docstore with batch size set to 0.
+        document_text = "warning test doc"
+        doc = Document(
+            text=document_text, id_="warning_test_doc", metadata={"doc": "info"}
+        )
+
+        with warnings.catch_warnings(record=True) as w:
+            await doc_store.async_add_documents([doc])
+
+            assert len(w) == 1
+            assert "Provided batch size less than 1. Defaulting to 1." in str(
+                w[-1].message
             )
 
     async def test_adocs(self, doc_store):
