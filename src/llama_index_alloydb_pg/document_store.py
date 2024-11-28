@@ -41,8 +41,7 @@ class AlloyDBDocumentStore(BaseDocumentStore):
         Args:
             key (object): Key to prevent direct constructor usage.
             engine (AlloyDBEngine): Database connection pool.
-            table_name (str): Table name that stores the documents.
-            schema_name (str): The schema name where the table is located. Defaults to "public".
+            document_store (AsyncAlloyDBDocumentStore): The async only DocumentStore implementation
 
         Raises:
             Exception: If constructor is directly called by the user.
@@ -111,16 +110,6 @@ class AlloyDBDocumentStore(BaseDocumentStore):
         return cls(cls.__create_key, engine, document_store)
 
     @property
-    async def adocs(self) -> Dict[str, BaseNode]:
-        """Get all documents.
-
-        Returns:
-            Dict[str, BaseDocument]: documents
-
-        """
-        return await self._engine._run_as_async(self.__document_store.adocs)
-
-    @property
     def docs(self) -> Dict[str, BaseNode]:
         """Get all documents.
 
@@ -140,15 +129,14 @@ class AlloyDBDocumentStore(BaseDocumentStore):
         """Adds a document to the store.
 
         Args:
-            docs (List[BaseDocument]): documents
+            docs (Sequence[BaseDocument]): documents
             allow_update (bool): allow update of docstore from document
             batch_size (int): batch_size to insert the rows. Defaults to 1.
-            store_text (bool): allow the text content of the node to stored.
+            store_text (bool): allow the text content of the node to stored. Defaults to "True".
 
         Returns:
             None
         """
-
         return await self._engine._run_as_async(
             self.__document_store.async_add_documents(
                 docs, allow_update, batch_size, store_text
@@ -165,15 +153,14 @@ class AlloyDBDocumentStore(BaseDocumentStore):
         """Adds a document to the store.
 
         Args:
-            docs (List[BaseDocument]): documents
+            docs (Sequence[BaseDocument]): documents
             allow_update (bool): allow update of docstore from document
             batch_size (int): batch_size to insert the rows. Defaults to 1.
-            store_text (bool): allow the text content of the node to stored.
+            store_text (bool): allow the text content of the node to stored. Defaults to "True".
 
         Returns:
             None
         """
-
         return self._engine._run_as_sync(
             self.__document_store.async_add_documents(
                 docs, allow_update, batch_size, store_text
@@ -333,10 +320,11 @@ class AlloyDBDocumentStore(BaseDocumentStore):
     async def aget_document_hash(self, doc_id: str) -> Optional[str]:
         """Get the stored hash for a document, if it exists.
 
+        Args:
+          doc_id: Node / Document id whose hash is to be retrieved.
+
         Returns:
-            Optional[
-              str   # hash for the given doc_id
-            ]
+            Optional[str]: The hash for the given doc_id, if available.
         """
         return await self._engine._run_as_async(
             self.__document_store.aget_document_hash(doc_id)
@@ -345,10 +333,11 @@ class AlloyDBDocumentStore(BaseDocumentStore):
     def get_document_hash(self, doc_id: str) -> Optional[str]:
         """Get the stored hash for a document, if it exists.
 
+        Args:
+          doc_id: Node / Document id whose hash is to be retrieved.
+
         Returns:
-            Optional[
-              str   # hash for the given doc_id
-            ]
+            Optional[str]: The hash for the given doc_id, if available.
         """
         return self._engine._run_as_sync(
             self.__document_store.aget_document_hash(doc_id)

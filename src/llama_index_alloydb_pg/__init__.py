@@ -15,4 +15,4 @@
 from .document_store import AlloyDBDocumentStore
 from .engine import AlloyDBEngine, Column
 
-_all = ["AlloyDBEngine", "Column", "AlloyDBDocumentStore"]
+_all = ["AlloyDBDocumentStore", "AlloyDBEngine", "Column"]

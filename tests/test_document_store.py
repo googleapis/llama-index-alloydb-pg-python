@@ -128,19 +128,6 @@ class TestAlloyDBDocumentStoreAsync:
                 engine=async_engine, table_name=default_table_name_async
             )
 
-    async def test_docs(self, doc_store):
-        # Create and add document into the doc store.
-        document_text = "add document test"
-        doc = Document(text=document_text, id_="add_doc_test", metadata={"doc": "info"})
-
-        # Add document into the store
-        await doc_store.async_add_documents([doc])
-
-        # Assert document is found using the docs property.
-        docs = await doc_store.adocs
-
-        assert doc.doc_id in docs
-
     async def test_async_add_document(self, async_engine, doc_store):
         # Create and add document into the doc store.
         document_text = "add document test"
