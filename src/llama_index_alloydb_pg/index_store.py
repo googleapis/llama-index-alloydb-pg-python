@@ -36,8 +36,7 @@ class AlloyDBIndexStore(BaseIndexStore):
         Args:
             key (object): Key to prevent direct constructor usage.
             engine (AlloyDBEngine): Database connection pool.
-            table_name (str): Table name that stores the index metadata.
-            schema_name (str): The schema name where the table is located. Defaults to "public"
+            index_store (AsyncAlloyDBIndexStore): The async only IndexStore implementation
 
         Raises:
             Exception: If constructor is directly called by the user.
