@@ -70,7 +70,7 @@ class AlloyDBDocumentStore(BaseDocumentStore):
             batch_size (str): The default batch size for bulk inserts. Defaults to 1.
 
         Raises:
-            IndexError: If the table provided does not contain required schema.
+            ValueError: If the table provided does not contain required schema.
 
         Returns:
             AlloyDBDocumentStore: A newly created instance of AlloyDBDocumentStore.
@@ -98,7 +98,7 @@ class AlloyDBDocumentStore(BaseDocumentStore):
             batch_size (str): The default batch size for bulk inserts. Defaults to 1.
 
         Raises:
-            IndexError: If the table provided does not contain required schema.
+            ValueError: If the table provided does not contain required schema.
 
         Returns:
             AlloyDBDocumentStore: A newly created instance of AlloyDBDocumentStore.
