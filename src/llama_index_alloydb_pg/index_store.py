@@ -14,12 +14,10 @@
 
 from __future__ import annotations
 
-import json
 from typing import List, Optional
 
 from llama_index.core.data_structs.data_structs import IndexStruct
 from llama_index.core.storage.index_store.types import BaseIndexStore
-from llama_index.core.storage.kvstore.types import DEFAULT_BATCH_SIZE
 
 from .async_index_store import AsyncAlloyDBIndexStore
 from .engine import AlloyDBEngine
@@ -40,7 +38,6 @@ class AlloyDBIndexStore(BaseIndexStore):
             engine (AlloyDBEngine): Database connection pool.
             table_name (str): Table name that stores the index metadata.
             schema_name (str): The schema name where the table is located. Defaults to "public"
-            batch_size (str): The default batch size for bulk inserts. Defaults to 1.
 
         Raises:
             Exception: If constructor is directly called by the user.
@@ -58,7 +55,6 @@ class AlloyDBIndexStore(BaseIndexStore):
         engine: AlloyDBEngine,
         table_name: str,
         schema_name: str = "public",
-        batch_size: int = DEFAULT_BATCH_SIZE,
     ) -> AlloyDBIndexStore:
         """Create a new AlloyDBIndexStore instance.
 
@@ -66,10 +62,9 @@ class AlloyDBIndexStore(BaseIndexStore):
             engine (AlloyDBEngine): AlloyDB engine to use.
             table_name (str): Table name that stores the index metadata.
             schema_name (str): The schema name where the table is located. Defaults to "public"
-            batch_size (str): The default batch size for bulk inserts. Defaults to 1.
 
         Raises:
-            IndexError: If the table provided does not contain required schema.
+            ValueError: If the table provided does not contain required schema.
 
         Returns:
             AlloyDBIndexStore: A newly created instance of AlloyDBIndexStore.
@@ -84,7 +79,6 @@ class AlloyDBIndexStore(BaseIndexStore):
         engine: AlloyDBEngine,
         table_name: str,
         schema_name: str = "public",
-        batch_size: int = DEFAULT_BATCH_SIZE,
     ) -> AlloyDBIndexStore:
         """Create a new AlloyDBIndexStore sync instance.
 
@@ -92,10 +86,9 @@ class AlloyDBIndexStore(BaseIndexStore):
             engine (AlloyDBEngine): AlloyDB engine to use.
             table_name (str): Table name that stores the index metadata.
             schema_name (str): The schema name where the table is located. Defaults to "public"
-            batch_size (str): The default batch size for bulk inserts. Defaults to 1.
 
         Raises:
-            IndexError: If the table provided does not contain required schema.
+            ValueError: If the table provided does not contain required schema.
 
         Returns:
             AlloyDBIndexStore: A newly created instance of AlloyDBIndexStore.
@@ -105,9 +98,21 @@ class AlloyDBIndexStore(BaseIndexStore):
         return cls(cls.__create_key, engine, index_store)
 
     async def aindex_structs(self) -> List[IndexStruct]:
+        """Get all index structs.
+
+        Returns:
+            List[IndexStruct]: index structs
+
+        """
         return await self._engine._run_as_async(self.__index_store.aindex_structs())
 
     def index_structs(self) -> List[IndexStruct]:
+        """Get all index structs.
+
+        Returns:
+            List[IndexStruct]: index structs
+
+        """
         return self._engine._run_as_sync(self.__index_store.aindex_structs())
 
     async def aadd_index_struct(self, index_struct: IndexStruct) -> None:
@@ -122,21 +127,45 @@ class AlloyDBIndexStore(BaseIndexStore):
         )
 
     def add_index_struct(self, index_struct: IndexStruct) -> None:
+        """Add an index struct.
+
+        Args:
+            index_struct (IndexStruct): index struct
+
+        """
         return self._engine._run_as_sync(
             self.__index_store.aadd_index_struct(index_struct)
         )
 
     async def adelete_index_struct(self, key: str) -> None:
+        """Delete an index struct.
+
+        Args:
+            key (str): index struct key
+
+        """
         return await self._engine._run_as_async(
             self.__index_store.adelete_index_struct(key)
         )
 
     def delete_index_struct(self, key: str) -> None:
+        """Delete an index struct.
+
+        Args:
+            key (str): index struct key
+
+        """
         return self._engine._run_as_sync(self.__index_store.adelete_index_struct(key))
 
     async def aget_index_struct(
         self, struct_id: Optional[str] = None
     ) -> Optional[IndexStruct]:
+        """Get an index struct.
+
+        Args:
+            struct_id (Optional[str]): index struct id
+
+        """
         return await self._engine._run_as_async(
             self.__index_store.aget_index_struct(struct_id)
         )
@@ -144,6 +173,12 @@ class AlloyDBIndexStore(BaseIndexStore):
     def get_index_struct(
         self, struct_id: Optional[str] = None
     ) -> Optional[IndexStruct]:
+        """Get an index struct.
+
+        Args:
+            struct_id (Optional[str]): index struct id
+
+        """
         return self._engine._run_as_sync(
             self.__index_store.aget_index_struct(struct_id)
         )
