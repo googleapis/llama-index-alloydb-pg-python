@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from llama_index.core.constants import DATA_KEY
@@ -127,9 +128,16 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             rows (List[Tuple[str, str]]): List of tuples of id and doc_hash
             batch_size (int): batch_size to insert the rows. Defaults to 1.
 
+        Raises:
+            Warning: If batch_size is less than 1 and defaults to 1.
+
         Returns:
             None
         """
+        if batch_size < 1:
+            batch_size = 1
+            warnings.warn("Provided batch size less than 1. Defaulting to 1.")
+
         for i in range(0, len(rows), batch_size):
             batch = rows[i : i + batch_size]
             params = [{"id": id, "doc_hash": doc_hash} for id, doc_hash in batch]
@@ -173,10 +181,17 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             batch_size (int): batch_size to insert the rows. Defaults to 1.
             store_text (bool): allow the text content of the node to stored.
 
+        Raises:
+            Warning: If batch_size is less than 1 and defaults to 1.
+
         Returns:
             None
         """
         batch_size = batch_size or self._batch_size
+
+        if batch_size < 1:
+            batch_size = 1
+            warnings.warn("Provided batch size less than 1. Defaulting to 1.")
 
         node_rows = []
 
