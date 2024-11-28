@@ -82,49 +82,51 @@ Use a vector store to store embedded data and perform vector search.
 .. code-block:: python
 
    from llama_index_alloydb_pg import AlloyDBEngine, AlloyDBVectorStore
-   from langchain_google_vertexai import VertexAIEmbeddings
+   from llama_index.core import Settings
+   from llama_index.embeddings.vertex import VertexTextEmbedding
 
    engine = AlloyDBEngine.from_instance("project-id", "region", "my-cluster", "my-instance", "my-database")
+   Settings.embed_model = VertexTextEmbedding(
+    model_name="textembedding-gecko@003", project=PROJECT_ID, credentials=credentials)
    embeddings_service = VertexAIEmbeddings(model_name="textembedding-gecko@003")
    vector_store = await AlloyDBVectorStore.create(
     engine=engine,
     table_name=TABLE_NAME,
-    # schema_name=SCHEMA_NAME
+    schema_name=SCHEMA_NAME
     )
 
 Document Store Usage
 ~~~~~~~~~~~~~~~~~~~~~
 
-Use a document loader to load data as LangChain ``Document``\ s.
+Use a document store to make storage and maintainence of data easier.
 
 .. code-block:: python
 
-   from langchain_google_alloydb_pg import AlloyDBEngine, AlloyDBDocumentStore
+   from llama_index_alloydb_pg import AlloyDBEngine, AlloyDBDocumentStore
 
 
    engine = AlloyDBEngine.from_instance("project-id", "region", "my-cluster", "my-instance", "my-database")
    doc_store = await AlloyDBDocumentStore.create(
     engine=engine,
     table_name=TABLE_NAME,
-    # schema_name=SCHEMA_NAME
+    schema_name=SCHEMA_NAME
     )
 
 Index Store Usage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Use ``ChatMessageHistory`` to store messages and provide conversation
-history to LLMs.
+Use an index store to keep track of indexes built on documents.
 
 .. code:: python
 
-   from langchain_google_alloydb_pg import AlloyDBIndexStore, AlloyDBEngine
+   from llama_index_alloydb_pg import AlloyDBIndexStore, AlloyDBEngine
 
 
    engine = AlloyDBEngine.from_instance("project-id", "region", "my-cluster", "my-instance", "my-database")
    index_store = await AlloyDBIndexStore.create(
     engine=engine,
     table_name=INDEX_TABLE_NAME,
-    # schema_name=SCHEMA_NAME
+    schema_name=SCHEMA_NAME
     )
 
 
