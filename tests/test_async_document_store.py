@@ -115,15 +115,18 @@ class TestAsyncAlloyDBDocumentStore:
                 engine=async_engine, table_name=default_table_name_async
             )
 
-    async def test_warning(self, doc_store):
+    async def test_warning(self, async_engine):
         # Create and add documents into the docstore with batch size set to 0.
         document_text = "warning test doc"
         doc = Document(
             text=document_text, id_="warning_test_doc", metadata={"doc": "info"}
         )
+        document_store = await AsyncAlloyDBDocumentStore.create(
+            engine=async_engine, table_name=default_table_name_async, batch_size=0
+        )
 
         with warnings.catch_warnings(record=True) as w:
-            await doc_store.async_add_documents([doc])
+            await document_store.async_add_documents([doc], batch_size=0)
 
             assert len(w) == 1
             assert "Provided batch size less than 1. Defaulting to 1." in str(
