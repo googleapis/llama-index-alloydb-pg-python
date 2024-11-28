@@ -1,8 +1,6 @@
 AlloyDB for PostgreSQL for LlamaIndex
 ==================================================
 
-[![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://ssh.cloud.google.com/cloudshell/editor?cloudshell_git_repo=GITHUB_URL)
-
 - `Product Documentation`_
 
 The **AlloyDB for PostgreSQL for LlamaIndex** package provides a first class experience for connecting to
@@ -57,7 +55,7 @@ Mac/Linux
    pip install virtualenv
    virtualenv <your-env>
    source <your-env>/bin/activate
-   <your-env>/bin/pip install llama-index-google-alloydb-pg
+   <your-env>/bin/pip install llama-index-alloydb-pg
 
 Windows
 ^^^^^^^
@@ -67,7 +65,67 @@ Windows
     pip install virtualenv
     virtualenv <your-env>
     <your-env>\Scripts\activate
-    <your-env>\Scripts\pip.exe install llama-index-google-alloydb-pg
+    <your-env>\Scripts\pip.exe install llama-index-alloydb-pg
+
+Example Usage
+-------------
+
+Code samples and snippets live in the `samples/`_ folder.
+
+.. _samples/: https://github.com/googleapis/llama-index-alloydb-pg-python/tree/main/samples
+
+Vector Store Usage
+~~~~~~~~~~~~~~~~~~~
+
+Use a vector store to store embedded data and perform vector search.
+
+.. code-block:: python
+
+   from llama_index_alloydb_pg import AlloyDBEngine, AlloyDBVectorStore
+   from langchain_google_vertexai import VertexAIEmbeddings
+
+   engine = AlloyDBEngine.from_instance("project-id", "region", "my-cluster", "my-instance", "my-database")
+   embeddings_service = VertexAIEmbeddings(model_name="textembedding-gecko@003")
+   vector_store = await AlloyDBVectorStore.create(
+    engine=engine,
+    table_name=TABLE_NAME,
+    # schema_name=SCHEMA_NAME
+    )
+
+Document Store Usage
+~~~~~~~~~~~~~~~~~~~~~
+
+Use a document loader to load data as LangChain ``Document``\ s.
+
+.. code-block:: python
+
+   from langchain_google_alloydb_pg import AlloyDBEngine, AlloyDBDocumentStore
+
+
+   engine = AlloyDBEngine.from_instance("project-id", "region", "my-cluster", "my-instance", "my-database")
+   doc_store = await AlloyDBDocumentStore.create(
+    engine=engine,
+    table_name=TABLE_NAME,
+    # schema_name=SCHEMA_NAME
+    )
+
+Index Store Usage
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use ``ChatMessageHistory`` to store messages and provide conversation
+history to LLMs.
+
+.. code:: python
+
+   from langchain_google_alloydb_pg import AlloyDBIndexStore, AlloyDBEngine
+
+
+   engine = AlloyDBEngine.from_instance("project-id", "region", "my-cluster", "my-instance", "my-database")
+   index_store = await AlloyDBIndexStore.create(
+    engine=engine,
+    table_name=INDEX_TABLE_NAME,
+    # schema_name=SCHEMA_NAME
+    )
 
 
 Contributions
