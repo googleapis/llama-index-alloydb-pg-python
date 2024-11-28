@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence, Type
 
 from llama_index.core.schema import BaseNode
 from llama_index.core.storage.docstore import BaseDocumentStore
@@ -55,7 +55,7 @@ class AlloyDBDocumentStore(BaseDocumentStore):
 
     @classmethod
     async def create(
-        cls,
+        cls: Type[AlloyDBDocumentStore],
         engine: AlloyDBEngine,
         table_name: str,
         schema_name: str = "public",
@@ -83,7 +83,7 @@ class AlloyDBDocumentStore(BaseDocumentStore):
 
     @classmethod
     def create_sync(
-        cls,
+        cls: Type[AlloyDBDocumentStore],
         engine: AlloyDBEngine,
         table_name: str,
         schema_name: str = "public",
