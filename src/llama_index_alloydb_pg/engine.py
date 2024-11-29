@@ -424,6 +424,8 @@ class AlloyDBEngine:
             table_name (str): The table name to store documents.
             schema_name (str): The schema name to store the documents table.
                 Default: "public".
+            overwrite_existing (bool): Whether to drop existing table.
+                Default: False.
 
         Returns:
             None
@@ -461,6 +463,8 @@ class AlloyDBEngine:
             table_name (str): The table name to store documents.
             schema_name (str): The schema name to store the documents table.
                 Default: "public".
+            overwrite_existing (bool): Whether to drop existing table.
+                Default: False.
 
         Returns:
             None
@@ -485,6 +489,8 @@ class AlloyDBEngine:
             table_name (str): The table name to store documents.
             schema_name (str): The schema name to store the documents table.
                 Default: "public".
+            overwrite_existing (bool): Whether to drop existing table.
+                Default: False.
 
         Returns:
             None
@@ -508,7 +514,7 @@ class AlloyDBEngine:
         metadata_json_column: str = "li_metadata",
         metadata_columns: List[Column] = [],
         ref_doc_id_column: str = "ref_doc_id",
-        node_column: str = "node",
+        node_column: str = "node_data",
         stores_text: bool = True,
         overwrite_existing: bool = False,
     ) -> None:
@@ -524,7 +530,7 @@ class AlloyDBEngine:
             metadata_json_column (str): Column to store metadata as JSON. Defaults to "li_metadata".
             metadata_columns (List[str]): Column(s) that represent extracted metadata keys in their own columns.
             ref_doc_id_column (str): Column that represents id of a node's parent document. Defaults to "ref_doc_id".
-            node_column (str): Column that represents the whole JSON node. Defaults to "node".
+            node_column (str): Column that represents the whole JSON node. Defaults to "node_data".
             stores_text (bool): Whether the table stores text. Defaults to "True".
             overwrite_existing (bool): Whether to drop existing table. Default: False.
 
@@ -581,7 +587,7 @@ class AlloyDBEngine:
         metadata_json_column: str = "li_metadata",
         metadata_columns: List[Column] = [],
         ref_doc_id_column: str = "ref_doc_id",
-        node_column: str = "node",
+        node_column: str = "node_data",
         stores_text: bool = True,
         overwrite_existing: bool = False,
     ) -> None:
@@ -597,7 +603,7 @@ class AlloyDBEngine:
             metadata_json_column (str): Column to store metadata as JSON. Defaults to "li_metadata".
             metadata_columns (List[str]): Column(s) that represent extracted metadata keys in their own columns.
             ref_doc_id_column (str): Column that represents id of a node's parent document. Defaults to "ref_doc_id".
-            node_column (str): Column that represents the whole JSON node. Defaults to "node".
+            node_column (str): Column that represents the whole JSON node. Defaults to "node_data".
             stores_text (bool): Whether the table stores text. Defaults to "True".
             overwrite_existing (bool): Whether to drop existing table. Default: False.
 
@@ -632,7 +638,7 @@ class AlloyDBEngine:
         metadata_json_column: str = "li_metadata",
         metadata_columns: List[Column] = [],
         ref_doc_id_column: str = "ref_doc_id",
-        node_column: str = "node",
+        node_column: str = "node_data",
         stores_text: bool = True,
         overwrite_existing: bool = False,
     ) -> None:
@@ -648,7 +654,7 @@ class AlloyDBEngine:
             metadata_json_column (str): Column to store metadata as JSON. Defaults to "li_metadata".
             metadata_columns (List[str]): Column(s) that represent extracted metadata keys in their own columns.
             ref_doc_id_column (str): Column that represents id of a node's parent document. Defaults to "ref_doc_id".
-            node_column (str): Column that represents the whole JSON node. Defaults to "node".
+            node_column (str): Column that represents the whole JSON node. Defaults to "node_data".
             stores_text (bool): Whether the table stores text. Defaults to "True".
             overwrite_existing (bool): Whether to drop existing table. Default: False.
 
@@ -668,6 +674,95 @@ class AlloyDBEngine:
                 ref_doc_id_column,
                 node_column,
                 stores_text,
+                overwrite_existing,
+            )
+        )
+
+    async def _ainit_index_store_table(
+        self,
+        table_name: str,
+        schema_name: str = "public",
+        overwrite_existing: bool = False,
+    ) -> None:
+        """
+        Create an AlloyDB table to save Index metadata.
+
+        Args:
+            table_name (str): The table name to store index metadata.
+            schema_name (str): The schema name to store the index metadata table.
+                Default: "public".
+            overwrite_existing (bool): Whether to drop existing table.
+                Default: False.
+
+        Returns:
+            None
+        """
+        if overwrite_existing:
+            async with self._pool.connect() as conn:
+                await conn.execute(
+                    text(f'DROP TABLE IF EXISTS "{schema_name}"."{table_name}"')
+                )
+                await conn.commit()
+
+        create_table_query = f"""CREATE TABLE "{schema_name}"."{table_name}"(
+            index_id VARCHAR PRIMARY KEY,
+            type VARCHAR NOT NULL,
+            index_data JSONB NOT NULL
+        );"""
+        async with self._pool.connect() as conn:
+            await conn.execute(text(create_table_query))
+            await conn.commit()
+
+    async def ainit_index_store_table(
+        self,
+        table_name: str,
+        schema_name: str = "public",
+        overwrite_existing: bool = False,
+    ) -> None:
+        """
+        Create an AlloyDB table to save Index metadata.
+
+        Args:
+            table_name (str): The table name to store index metadata.
+            schema_name (str): The schema name to store the index metadata table.
+                Default: "public".
+            overwrite_existing (bool): Whether to drop existing table.
+                Default: False.
+
+        Returns:
+            None
+        """
+        await self._run_as_async(
+            self._ainit_index_store_table(
+                table_name,
+                schema_name,
+                overwrite_existing,
+            )
+        )
+
+    def init_index_store_table(
+        self,
+        table_name: str,
+        schema_name: str = "public",
+        overwrite_existing: bool = False,
+    ) -> None:
+        """
+        Create an AlloyDB table to save Index metadata.
+
+        Args:
+            table_name (str): The table name to store index metadata.
+            schema_name (str): The schema name to store the index metadata table.
+                Default: "public".
+            overwrite_existing (bool): Whether to drop existing table.
+                Default: False.
+
+        Returns:
+            None
+        """
+        self._run_as_sync(
+            self._ainit_index_store_table(
+                table_name,
+                schema_name,
                 overwrite_existing,
             )
         )

@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .document_store import AlloyDBDocumentStore
 from .engine import AlloyDBEngine, Column
+from .index_store import AlloyDBIndexStore
 
-_all = ["AlloyDBEngine", "Column", "__version__"]
+
+_all = ["AlloyDBDocumentStore", "AlloyDBEngine", "AlloyDBIndexStore", "Column", "__version__"]

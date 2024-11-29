@@ -58,7 +58,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         metadata_json_column: str = "li_metadata",
         metadata_columns: List[str] = [],
         ref_doc_id_column: str = "ref_doc_id",
-        node_column: str = "node",
+        node_column: str = "node_data",
         stores_text: bool = True,
         is_embedding_query: bool = True,
     ):
@@ -74,7 +74,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             metadata_json_column (str): Column to store metadata as JSON. Defaults to "li_metadata".
             metadata_columns (List[str]): Column(s) that represent extracted metadata keys in their own columns.
             ref_doc_id_column (str): Column that represents id of a node's parent document. Defaults to "ref_doc_id".
-            node_column (str): Column that represents the whole JSON node. Defaults to "node".
+            node_column (str): Column that represents the whole JSON node. Defaults to "node_data".
             stores_text (bool): Whether the table stores text. Defaults to "True".
             is_embedding_query (bool): Whether the table query can have embeddings. Defaults to "True".
 
@@ -110,7 +110,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         metadata_json_column: str = "li_metadata",
         metadata_columns: List[str] = [],
         ref_doc_id_column: str = "ref_doc_id",
-        node_column: str = "node",
+        node_column: str = "node_data",
         stores_text: bool = True,
         is_embedding_query: bool = True,
     ) -> AsyncAlloyDBVectorStore:
@@ -126,7 +126,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             metadata_json_column (str): Column to store metadata as JSON. Defaults to "li_metadata".
             metadata_columns (List[str]): Column(s) that represent extracted metadata keys in their own columns.
             ref_doc_id_column (str): Column that represents id of a node's parent document. Defaults to "ref_doc_id".
-            node_column (str): Column that represents the whole JSON node. Defaults to "node".
+            node_column (str): Column that represents the whole JSON node. Defaults to "node_data".
             stores_text (bool): Whether the table stores text. Defaults to "True".
             is_embedding_query (bool): Whether the table query can have embeddings. Defaults to "True".
 
@@ -209,13 +209,52 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
 
     async def async_add(self, nodes: Sequence[BaseNode], **kwargs: Any) -> List[str]:
         """Asynchronously add nodes to the table."""
-        # TODO: complete implementation
-        return []
+        ids = []
+        metadata_col_names = (
+            ", " + ", ".join(self._metadata_columns)
+            if len(self._metadata_columns) > 0
+            else ""
+        )
+        metadata_col_values = (
+            ", " + ", :".join(self._metadata_columns)
+            if len(self._metadata_columns) > 0
+            else ""
+        )
+        insert_stmt = f"""INSERT INTO "{self._schema_name}"."{self._table_name}"(
+            {self._id_column},
+            {self._text_column},
+            {self._embedding_column},
+            {self._metadata_json_column},
+            {self._ref_doc_id_column},
+            {self._node_column}
+            {metadata_col_names}
+        ) VALUES (:node_id, :text, :embedding, :li_metadata, :ref_doc_id, :node_data {metadata_col_values})
+        """
+        node_values_list = []
+        for node in nodes:
+            node_values = {
+                "node_id": node.node_id,
+                "text": node.get_content(metadata_mode=MetadataMode.NONE),
+                "embedding": str(node.get_embedding()),
+                "li_metadata": json.dumps(node.to_dict()["metadata"]),
+                "ref_doc_id": node.ref_doc_id,
+                "node_data": node.to_json(),
+            }
+            for metadata_column in self._metadata_columns:
+                node_values[metadata_column] = node.metadata.get(metadata_column)
+            node_values_list.append(node_values)
+            ids.append(node.node_id)
+        async with self._engine.connect() as conn:
+            await conn.execute(text(insert_stmt), node_values_list)
+            await conn.commit()
+        return ids
 
     async def adelete(self, ref_doc_id: str, **delete_kwargs: Any) -> None:
         """Asynchronously delete nodes belonging to provided parent document from the table."""
-        # TODO: complete implementation
-        return
+        query = f"""DELETE FROM "{self._schema_name}"."{self._table_name}" WHERE {self._ref_doc_id_column} = '{ref_doc_id}'"""
+        async with self._engine.connect() as conn:
+            await conn.execute(text(query))
+            await conn.commit()
 
     async def adelete_nodes(
         self,
@@ -229,8 +268,10 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
 
     async def aclear(self) -> None:
         """Asynchronously delete all nodes from the table."""
-        # TODO: complete implementation
-        return
+        query = f'TRUNCATE TABLE "{self._schema_name}"."{self._table_name}"'
+        async with self._engine.connect() as conn:
+            await conn.execute(text(query))
+            await conn.commit()
 
     async def aget_nodes(
         self,

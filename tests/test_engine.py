@@ -30,6 +30,8 @@ from llama_index_alloydb_pg import AlloyDBEngine, Column
 
 DEFAULT_DS_TABLE = "document_store_" + str(uuid.uuid4())
 DEFAULT_DS_TABLE_SYNC = "document_store_" + str(uuid.uuid4())
+DEFAULT_IS_TABLE = "index_store_" + str(uuid.uuid4())
+DEFAULT_IS_TABLE_SYNC = "index_store_" + str(uuid.uuid4())
 DEFAULT_VS_TABLE = "vector_store_" + str(uuid.uuid4())
 DEFAULT_VS_TABLE_SYNC = "vector_store_" + str(uuid.uuid4())
 VECTOR_SIZE = 768
@@ -115,6 +117,7 @@ class TestEngineAsync:
         yield engine
         await aexecute(engine, f'DROP TABLE "{DEFAULT_DS_TABLE}"')
         await aexecute(engine, f'DROP TABLE "{DEFAULT_VS_TABLE}"')
+        await aexecute(engine, f'DROP TABLE "{DEFAULT_IS_TABLE}"')
         await engine.close()
 
     async def test_password(
@@ -275,7 +278,7 @@ class TestEngineAsync:
                 "data_type": "USER-DEFINED",
                 "is_nullable": "YES",
             },
-            {"column_name": "node", "data_type": "json", "is_nullable": "NO"},
+            {"column_name": "node_data", "data_type": "json", "is_nullable": "NO"},
             {
                 "column_name": "ref_doc_id",
                 "data_type": "character varying",
@@ -287,6 +290,22 @@ class TestEngineAsync:
             assert row in expected
         for row in expected:
             assert row in results
+
+    async def test_init_index_store(self, engine):
+        await engine.ainit_index_store_table(
+            table_name=DEFAULT_IS_TABLE,
+            schema_name="public",
+            overwrite_existing=True,
+        )
+        stmt = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{DEFAULT_IS_TABLE}';"
+        results = await afetch(engine, stmt)
+        expected = [
+            {"column_name": "index_id", "data_type": "character varying"},
+            {"column_name": "type", "data_type": "character varying"},
+            {"column_name": "index_data", "data_type": "jsonb"},
+        ]
+        for row in results:
+            assert row in expected
 
 
 @pytest.mark.asyncio
@@ -338,6 +357,7 @@ class TestEngineSync:
         )
         yield engine
         await aexecute(engine, f'DROP TABLE "{DEFAULT_DS_TABLE_SYNC}"')
+        await aexecute(engine, f'DROP TABLE "{DEFAULT_IS_TABLE_SYNC}"')
         await aexecute(engine, f'DROP TABLE "{DEFAULT_VS_TABLE_SYNC}"')
         await engine.close()
 
@@ -433,7 +453,7 @@ class TestEngineSync:
                 "data_type": "USER-DEFINED",
                 "is_nullable": "YES",
             },
-            {"column_name": "node", "data_type": "json", "is_nullable": "NO"},
+            {"column_name": "node_data", "data_type": "json", "is_nullable": "NO"},
             {
                 "column_name": "ref_doc_id",
                 "data_type": "character varying",
@@ -445,3 +465,19 @@ class TestEngineSync:
             assert row in expected
         for row in expected:
             assert row in results
+
+    async def test_init_index_store(self, engine):
+        engine.init_index_store_table(
+            table_name=DEFAULT_IS_TABLE_SYNC,
+            schema_name="public",
+            overwrite_existing=True,
+        )
+        stmt = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{DEFAULT_IS_TABLE_SYNC}';"
+        results = await afetch(engine, stmt)
+        expected = [
+            {"column_name": "index_id", "data_type": "character varying"},
+            {"column_name": "type", "data_type": "character varying"},
+            {"column_name": "index_data", "data_type": "jsonb"},
+        ]
+        for row in results:
+            assert row in expected
