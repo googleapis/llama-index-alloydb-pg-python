@@ -109,7 +109,12 @@ class TestVectorStoreAsync:
 
     @pytest_asyncio.fixture(scope="class")
     async def engine(
-        self, db_project, db_region, db_cluster, db_instance, db_name, db_user, db_pwd
+        self,
+        db_project,
+        db_region,
+        db_cluster,
+        db_instance,
+        db_name,
     ):
         engine = await AlloyDBEngine.afrom_instance(
             project_id=db_project,
@@ -117,8 +122,6 @@ class TestVectorStoreAsync:
             cluster=db_cluster,
             region=db_region,
             database=db_name,
-            user=db_user,
-            password=db_pwd,
         )
 
         yield engine
@@ -389,7 +392,12 @@ class TestVectorStoreSync:
 
     @pytest_asyncio.fixture(scope="class")
     async def engine(
-        self, db_project, db_region, db_cluster, db_instance, db_name, db_user, db_pwd
+        self,
+        db_project,
+        db_region,
+        db_cluster,
+        db_instance,
+        db_name,
     ):
         engine = AlloyDBEngine.from_instance(
             project_id=db_project,
@@ -397,8 +405,6 @@ class TestVectorStoreSync:
             cluster=db_cluster,
             region=db_region,
             database=db_name,
-            user=db_user,
-            password=db_pwd,
         )
 
         yield engine
