@@ -19,18 +19,24 @@ import base64
 import json
 import re
 import uuid
+import warnings
 from typing import Any, Callable, Iterable, List, Optional, Sequence, Tuple, Type
 
 import numpy as np
-from llama_index.core.schema import BaseNode, MetadataMode, TextNode
+from llama_index.core.schema import BaseNode, MetadataMode, NodeRelationship, TextNode
 from llama_index.core.vector_stores.types import (
     BasePydanticVectorStore,
+    FilterCondition,
     FilterOperator,
     MetadataFilter,
     MetadataFilters,
     VectorStoreQuery,
     VectorStoreQueryMode,
     VectorStoreQueryResult,
+)
+from llama_index.core.vector_stores.utils import (
+    metadata_dict_to_node,
+    node_to_metadata_dict,
 )
 from sqlalchemy import RowMapping, text
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -232,11 +238,16 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         """
         node_values_list = []
         for node in nodes:
+            metadata = json.dumps(
+                node_to_metadata_dict(
+                    node, remove_text=self.stores_text, flat_metadata=False
+                )
+            )
             node_values = {
                 "node_id": node.node_id,
                 "text": node.get_content(metadata_mode=MetadataMode.NONE),
                 "embedding": str(node.get_embedding()),
-                "li_metadata": json.dumps(node.to_dict()["metadata"]),
+                "li_metadata": metadata,
                 "ref_doc_id": node.ref_doc_id,
                 "node_data": node.to_json(),
             }
@@ -263,8 +274,30 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         **delete_kwargs: Any,
     ) -> None:
         """Asynchronously delete a set of nodes from the table matching the provided nodes and filters."""
-        # TODO: complete implementation
-        return
+        if not node_ids and not filters:
+            return
+        all_filters: List[MetadataFilter | MetadataFilters] = []
+        if node_ids:
+            all_filters.append(
+                MetadataFilter(
+                    key=self._id_column, value=node_ids, operator=FilterOperator.IN
+                )
+            )
+        if filters:
+            all_filters.append(filters)
+        filters_stmt = ""
+        if all_filters:
+            all_metadata_filters = MetadataFilters(
+                filters=all_filters, condition=FilterCondition.AND
+            )
+            filters_stmt = self.__parse_metadata_filters_recursively(
+                all_metadata_filters
+            )
+        filters_stmt = f"WHERE {filters_stmt}" if filters_stmt else ""
+        query = f'DELETE FROM "{self._schema_name}"."{self._table_name}" {filters_stmt}'
+        async with self._engine.connect() as conn:
+            await conn.execute(text(query))
+            await conn.commit()
 
     async def aclear(self) -> None:
         """Asynchronously delete all nodes from the table."""
@@ -279,15 +312,33 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         filters: Optional[MetadataFilters] = None,
     ) -> List[BaseNode]:
         """Asynchronously get nodes from the table matching the provided nodes and filters."""
-        # TODO: complete implementation
-        return []
+        query = VectorStoreQuery(node_ids=node_ids, filters=filters)
+        result = await self.aquery(query)
+        return list(result.nodes) if result.nodes else []
 
     async def aquery(
         self, query: VectorStoreQuery, **kwargs: Any
     ) -> VectorStoreQueryResult:
         """Asynchronously query vector store."""
-        # TODO: complete implementation
-        return VectorStoreQueryResult()
+        results = await self.__query_columns(query)
+        nodes = []
+        ids = []
+        similarities = []
+
+        for row in results:
+            node = metadata_dict_to_node(
+                row[self._metadata_json_column], row[self._text_column]
+            )
+            if row[self._ref_doc_id_column]:
+                node_source = TextNode(id_=row[self._ref_doc_id_column])
+                node.relationships[NodeRelationship.SOURCE] = (
+                    node_source.as_related_node_info()
+                )
+            nodes.append(node)
+            ids.append(row[self._id_column])
+            if "distance" in row:
+                similarities.append(row["distance"])
+        return VectorStoreQueryResult(nodes=nodes, similarities=similarities, ids=ids)
 
     def add(self, nodes: Sequence[BaseNode], **add_kwargs: Any) -> List[str]:
         raise NotImplementedError(
@@ -327,3 +378,179 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         raise NotImplementedError(
             "Sync methods are not implemented for AsyncAlloyDBVectorStore. Use AlloyDBVectorStore interface instead."
         )
+
+    async def __query_columns(
+        self,
+        query: VectorStoreQuery,
+        **kwargs: Any,
+    ) -> Sequence[RowMapping]:
+        """Perform search query on database."""
+        filters: List[MetadataFilter | MetadataFilters] = []
+        if query.doc_ids:
+            filters.append(
+                MetadataFilter(
+                    key=self._ref_doc_id_column,
+                    value=query.doc_ids,
+                    operator=FilterOperator.IN,
+                )
+            )
+        if query.node_ids:
+            filters.append(
+                MetadataFilter(
+                    key=self._id_column,
+                    value=query.node_ids,
+                    operator=FilterOperator.IN,
+                )
+            )
+        if query.filters:
+            filters.append(query.filters)
+
+        # Note:
+        # Hybrid search is not yet supported, so following fields in `query` are ignored:
+        #     query_str, mode, alpha, mmr_threshold, sparse_top_k, hybrid_top_k
+        # Vectors are already stored `self._embedding_column` so a custom embedding_field is ignored.
+        query_filters = MetadataFilters(filters=filters, condition=FilterCondition.AND)
+
+        filters_stmt = self.__parse_metadata_filters_recursively(query_filters)
+        filters_stmt = f"WHERE {filters_stmt}" if filters_stmt else ""
+
+        # query_embedding is used for scoring
+        scoring_stmt = (
+            f", cosine_distance({self._embedding_column}, '{query.query_embedding}') as distance"
+            if query.query_embedding
+            else ""
+        )
+
+        # results are sorted on ORDER BY query_embedding
+        order_stmt = (
+            f" ORDER BY {self._embedding_column} <=> '{query.query_embedding}' "
+            if query.query_embedding
+            else ""
+        )
+
+        # similarity_top_k is used for limiting number of retrieved nodes
+        limit_stmt = (
+            f" LIMIT {query.similarity_top_k} " if query.similarity_top_k >= 1 else ""
+        )
+
+        query_stmt = f'SELECT * {scoring_stmt} FROM "{self._schema_name}"."{self._table_name}" {filters_stmt} {order_stmt} {limit_stmt}'
+        async with self._engine.connect() as conn:
+            result = await conn.execute(text(query_stmt))
+            result_map = result.mappings()
+            results = result_map.fetchall()
+        return results
+
+    def __parse_metadata_filters_recursively(
+        self, metadata_filters: MetadataFilters
+    ) -> str:
+        """
+        Parses a MetadataFilters object into a SQL WHERE clause.
+        Supports a mixed list of MetadataFilter and nested MetadataFilters.
+        """
+        if not metadata_filters.filters:
+            return ""
+
+        where_clauses = []
+        for filter_item in metadata_filters.filters:
+            if isinstance(filter_item, MetadataFilter):
+                clause = self.__parse_metadata_filter(filter_item)
+                if clause:
+                    where_clauses.append(clause)
+            elif isinstance(filter_item, MetadataFilters):
+                # Handle nested filters recursively
+                nested_clause = self.__parse_metadata_filters_recursively(filter_item)
+                if nested_clause:
+                    where_clauses.append(f"({nested_clause})")
+
+        # Combine clauses with the specified condition
+        condition_value = (
+            metadata_filters.condition.value
+            if metadata_filters.condition
+            else FilterCondition.AND.value
+        )
+        return f" {condition_value} ".join(where_clauses) if where_clauses else ""
+
+    def __parse_metadata_filter(self, filter: MetadataFilter) -> str:
+        key = self.__to_postgres_key(filter.key)
+        op = self.__to_postgres_operator(filter.operator)
+        if filter.operator == FilterOperator.IS_EMPTY:
+            # checks for emptiness of a field, so value is ignored
+            return f"({key} IS NULL OR length({key}) = 0)"
+        if filter.operator == FilterOperator.CONTAINS:
+            return f"{key} {op} '[\"{filter.value}\"]' "
+        if filter.operator == FilterOperator.TEXT_MATCH:
+            return f"{key} {op} '%{filter.value}%' "
+        if filter.operator in [
+            FilterOperator.ANY,
+            FilterOperator.ALL,
+            FilterOperator.IN,
+            FilterOperator.NIN,
+        ]:
+            # Expect a single value in metadata and a list to compare
+            if not isinstance(filter.value, list):
+                # skip improperly provided filter and raise a warning
+                warnings.warn(
+                    f"""Expecting List in the filter value, but got {type(filter.value)}.
+                    Ignoring this filter:
+                    Key -> '{filter.key}'
+                    Operator -> '{filter.operator}'
+                    Value -> '{filter.value}'"""
+                )
+                return ""
+            filter_value = ", ".join(f"'{e}'" for e in filter.value)
+            if filter.operator in [FilterOperator.ANY, FilterOperator.ALL]:
+                return f"{key} {op} (ARRAY[{filter_value}])"
+            else:
+                return f"{key} {op} ({filter_value})"
+
+        # Check if value is a number. If so, cast the metadata value to a float
+        # This is necessary because the metadata is stored as a string.
+        if isinstance(filter.value, (int, float, str)):
+            try:
+                return f"{key}::float {op} {float(filter.value)}"
+            except ValueError:
+                # If not a number, then treat it as a string
+                pass
+        return f"{key} {op} '{filter.value}'"
+
+    def __to_postgres_operator(self, operator: FilterOperator) -> str:
+        if operator == FilterOperator.EQ:
+            return "="
+        elif operator == FilterOperator.GT:
+            return ">"
+        elif operator == FilterOperator.LT:
+            return "<"
+        elif operator == FilterOperator.NE:
+            return "!="
+        elif operator == FilterOperator.GTE:
+            return ">="
+        elif operator == FilterOperator.LTE:
+            return "<="
+        elif operator == FilterOperator.IN:
+            return "IN"
+        elif operator == FilterOperator.NIN:
+            return "NOT IN"
+        elif operator == FilterOperator.ANY:
+            return "= ANY"
+        elif operator == FilterOperator.ALL:
+            return "@>"
+        elif operator == FilterOperator.CONTAINS:
+            return "@>"
+        elif operator == FilterOperator.TEXT_MATCH:
+            return "LIKE"
+        elif operator == FilterOperator.IS_EMPTY:
+            return "IS_EMPTY"
+        else:
+            warnings.warn(f"Unknown operator: {operator}, fallback to '='")
+            return "="
+
+    def __to_postgres_key(self, key: str) -> str:
+        if key in self._metadata_columns:
+            return key
+        if key in [
+            self._id_column,
+            self._ref_doc_id_column,
+            self._text_column,
+        ]:
+            return key
+        return f"{self._metadata_json_column}->>'{key}'"
