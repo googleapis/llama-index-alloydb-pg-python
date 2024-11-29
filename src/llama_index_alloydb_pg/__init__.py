@@ -16,4 +16,10 @@ from .document_store import AlloyDBDocumentStore
 from .engine import AlloyDBEngine, Column
 from .index_store import AlloyDBIndexStore
 
-_all = ["AlloyDBDocumentStore", "AlloyDBEngine", "AlloyDBIndexStore", "Column"]
+_all = [
+    "AlloyDBDocumentStore",
+    "AlloyDBEngine",
+    "AlloyDBIndexStore",
+    "Column",
+    "__version__",
+]
