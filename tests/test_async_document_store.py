@@ -115,7 +115,7 @@ class TestAsyncAlloyDBDocumentStore:
         await async_engine._ainit_doc_store_table(table_name=custom_table_name)
 
         custom_doc_store = await AsyncAlloyDBDocumentStore.create(
-            engine=async_engine, table_name=custom_table_name
+            engine=async_engine, table_name=custom_table_name, batch_size=0
         )
 
         yield custom_doc_store
