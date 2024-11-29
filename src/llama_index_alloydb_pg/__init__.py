@@ -18,7 +18,6 @@ from .index_store import AlloyDBIndexStore
 from .vectorstore import AlloyDBVectorStore
 from .version import __version__
 
-
 _all = [
     "AlloyDBDocumentStore",
     "AlloyDBEngine",
