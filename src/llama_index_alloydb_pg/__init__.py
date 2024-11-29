@@ -16,6 +16,8 @@ from .document_store import AlloyDBDocumentStore
 from .engine import AlloyDBEngine, Column
 from .index_store import AlloyDBIndexStore
 from .vectorstore import AlloyDBVectorStore
+from .version import __version__
+
 
 _all = [
     "AlloyDBDocumentStore",
