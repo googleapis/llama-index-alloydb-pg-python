@@ -23,4 +23,5 @@ _all = [
     "AlloyDBIndexStore",
     "AlloyDBVectorStore",
     "Column",
+    "__version__",
 ]
