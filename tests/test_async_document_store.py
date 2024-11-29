@@ -114,11 +114,11 @@ class TestAsyncAlloyDBDocumentStore:
     async def custom_doc_store(self, async_engine):
         await async_engine._ainit_doc_store_table(table_name=custom_table_name)
 
-        doc_store = await AsyncAlloyDBDocumentStore.create(
+        custom_doc_store = await AsyncAlloyDBDocumentStore.create(
             engine=async_engine, table_name=custom_table_name
         )
 
-        yield doc_store
+        yield custom_doc_store
 
         query = f'DROP TABLE IF EXISTS "{custom_table_name}"'
         await aexecute(async_engine, query)
