@@ -89,36 +89,43 @@ Use a vector store to store embedded data and perform vector search.
 
 .. code-block:: python
 
+   import google.auth
    from llama_index_alloydb_pg import AlloyDBEngine, AlloyDBVectorStore
    from llama_index.core import Settings
    from llama_index.embeddings.vertex import VertexTextEmbedding
 
-   engine = AlloyDBEngine.from_instance("project-id", "region", "my-cluster", "my-instance", "my-database")
+   credentials, project_id = google.auth.default()
+   engine = await AlloyDBEngine.afrom_instance(
+      "project-id", "region", "my-cluster", "my-instance", "my-database"
+   )
    Settings.embed_model = VertexTextEmbedding(
-    model_name="textembedding-gecko@003", project=PROJECT_ID, credentials=credentials)
-   embeddings_service = VertexAIEmbeddings(model_name="textembedding-gecko@003")
+      model_name="textembedding-gecko@003",
+      project="project-id",
+      credentials=credentials,
+   )
+
    vector_store = await AlloyDBVectorStore.create(
-    engine=engine,
-    table_name=TABLE_NAME,
-    schema_name=SCHEMA_NAME
-    )
+      engine=engine, table_name="vector_store"
+   )
+
 
 Document Store Usage
 ~~~~~~~~~~~~~~~~~~~~~
 
-Use a document store to make storage and maintainence of data easier.
+Use a document store to make storage and maintenance of data easier.
 
 .. code-block:: python
 
    from llama_index_alloydb_pg import AlloyDBEngine, AlloyDBDocumentStore
 
 
-   engine = AlloyDBEngine.from_instance("project-id", "region", "my-cluster", "my-instance", "my-database")
+   engine = await AlloyDBEngine.afrom_instance(
+      "project-id", "region", "my-cluster", "my-instance", "my-database"
+   )
    doc_store = await AlloyDBDocumentStore.create(
-    engine=engine,
-    table_name=TABLE_NAME,
-    schema_name=SCHEMA_NAME
-    )
+      engine=engine, table_name="doc_store"
+   )
+
 
 Index Store Usage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -130,12 +137,12 @@ Use an index store to keep track of indexes built on documents.
    from llama_index_alloydb_pg import AlloyDBIndexStore, AlloyDBEngine
 
 
-   engine = AlloyDBEngine.from_instance("project-id", "region", "my-cluster", "my-instance", "my-database")
+   engine = await AlloyDBEngine.from_instance(
+      "project-id", "region", "my-cluster", "my-instance", "my-database"
+   )
    index_store = await AlloyDBIndexStore.create(
-    engine=engine,
-    table_name=INDEX_TABLE_NAME,
-    schema_name=SCHEMA_NAME
-    )
+      engine=engine, table_name="index_store"
+   )
 
 
 Contributions
