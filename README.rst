@@ -1,6 +1,8 @@
 AlloyDB for PostgreSQL for LlamaIndex
 ==================================================
 
+|preview| |pypi| |versions|
+
 - `Product Documentation`_
 
 The **AlloyDB for PostgreSQL for LlamaIndex** package provides a first class experience for connecting to
@@ -11,6 +13,12 @@ AlloyDB instances from the LlamaIndex ecosystem while providing the following be
 - **Improved metadata handling**: store metadata in columns instead of JSON, resulting in significant performance improvements.
 - **Clear separation**: clearly separate table and extension creation, allowing for distinct permissions and streamlined workflows.
 
+.. |preview| image:: https://img.shields.io/badge/support-preview-orange.svg
+   :target: https://github.com/googleapis/google-cloud-python/blob/main/README.rst#stability-levels
+.. |pypi| image:: https://img.shields.io/pypi/v/llama-index-alloydb-pg.svg
+   :target: https://pypi.org/project/llama-index-alloydb-pg/
+.. |versions| image:: https://img.shields.io/pypi/pyversions/llama-index-alloydb-pg.svg
+   :target: https://pypi.org/project/llama-index-alloydb-pg/
 .. _Product Documentation: https://cloud.google.com/alloydb
 
 Quick Start
