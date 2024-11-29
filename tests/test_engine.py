@@ -14,7 +14,7 @@
 
 import os
 import uuid
-from typing import Sequence
+from typing import Dict, Sequence
 
 import asyncpg  # type: ignore
 import pytest
@@ -30,6 +30,11 @@ from llama_index_alloydb_pg import AlloyDBEngine, Column
 
 DEFAULT_DS_TABLE = "document_store_" + str(uuid.uuid4())
 DEFAULT_DS_TABLE_SYNC = "document_store_" + str(uuid.uuid4())
+DEFAULT_IS_TABLE = "index_store_" + str(uuid.uuid4())
+DEFAULT_IS_TABLE_SYNC = "index_store_" + str(uuid.uuid4())
+DEFAULT_VS_TABLE = "vector_store_" + str(uuid.uuid4())
+DEFAULT_VS_TABLE_SYNC = "vector_store_" + str(uuid.uuid4())
+VECTOR_SIZE = 768
 
 
 def get_env_var(key: str, desc: str) -> str:
@@ -111,6 +116,8 @@ class TestEngineAsync:
         )
         yield engine
         await aexecute(engine, f'DROP TABLE "{DEFAULT_DS_TABLE}"')
+        await aexecute(engine, f'DROP TABLE "{DEFAULT_VS_TABLE}"')
+        await aexecute(engine, f'DROP TABLE "{DEFAULT_IS_TABLE}"')
         await engine.close()
 
     async def test_password(
@@ -250,6 +257,56 @@ class TestEngineAsync:
         for row in results:
             assert row in expected
 
+    async def test_init_vector_store(self, engine):
+        await engine.ainit_vector_store_table(
+            table_name=DEFAULT_VS_TABLE,
+            vector_size=VECTOR_SIZE,
+            schema_name="public",
+            overwrite_existing=True,
+        )
+        stmt = f"SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = '{DEFAULT_VS_TABLE}';"
+        results = await afetch(engine, stmt)
+        expected = [
+            {
+                "column_name": "node_id",
+                "data_type": "character varying",
+                "is_nullable": "NO",
+            },
+            {"column_name": "li_metadata", "data_type": "jsonb", "is_nullable": "NO"},
+            {
+                "column_name": "embedding",
+                "data_type": "USER-DEFINED",
+                "is_nullable": "YES",
+            },
+            {"column_name": "node_data", "data_type": "json", "is_nullable": "NO"},
+            {
+                "column_name": "ref_doc_id",
+                "data_type": "character varying",
+                "is_nullable": "YES",
+            },
+            {"column_name": "text", "data_type": "text", "is_nullable": "NO"},
+        ]
+        for row in results:
+            assert row in expected
+        for row in expected:
+            assert row in results
+
+    async def test_init_index_store(self, engine):
+        await engine.ainit_index_store_table(
+            table_name=DEFAULT_IS_TABLE,
+            schema_name="public",
+            overwrite_existing=True,
+        )
+        stmt = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{DEFAULT_IS_TABLE}';"
+        results = await afetch(engine, stmt)
+        expected = [
+            {"column_name": "index_id", "data_type": "character varying"},
+            {"column_name": "type", "data_type": "character varying"},
+            {"column_name": "index_data", "data_type": "jsonb"},
+        ]
+        for row in results:
+            assert row in expected
+
 
 @pytest.mark.asyncio
 class TestEngineSync:
@@ -300,6 +357,8 @@ class TestEngineSync:
         )
         yield engine
         await aexecute(engine, f'DROP TABLE "{DEFAULT_DS_TABLE_SYNC}"')
+        await aexecute(engine, f'DROP TABLE "{DEFAULT_IS_TABLE_SYNC}"')
+        await aexecute(engine, f'DROP TABLE "{DEFAULT_VS_TABLE_SYNC}"')
         await engine.close()
 
     async def test_password(
@@ -369,6 +428,56 @@ class TestEngineSync:
             {"column_name": "doc_hash", "data_type": "character varying"},
             {"column_name": "ref_doc_id", "data_type": "character varying"},
             {"column_name": "node_data", "data_type": "jsonb"},
+        ]
+        for row in results:
+            assert row in expected
+
+    async def test_init_vector_store(self, engine):
+        engine.init_vector_store_table(
+            table_name=DEFAULT_VS_TABLE_SYNC,
+            vector_size=VECTOR_SIZE,
+            schema_name="public",
+            overwrite_existing=True,
+        )
+        stmt = f"SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = '{DEFAULT_VS_TABLE_SYNC}';"
+        results = await afetch(engine, stmt)
+        expected = [
+            {
+                "column_name": "node_id",
+                "data_type": "character varying",
+                "is_nullable": "NO",
+            },
+            {"column_name": "li_metadata", "data_type": "jsonb", "is_nullable": "NO"},
+            {
+                "column_name": "embedding",
+                "data_type": "USER-DEFINED",
+                "is_nullable": "YES",
+            },
+            {"column_name": "node_data", "data_type": "json", "is_nullable": "NO"},
+            {
+                "column_name": "ref_doc_id",
+                "data_type": "character varying",
+                "is_nullable": "YES",
+            },
+            {"column_name": "text", "data_type": "text", "is_nullable": "NO"},
+        ]
+        for row in results:
+            assert row in expected
+        for row in expected:
+            assert row in results
+
+    async def test_init_index_store(self, engine):
+        engine.init_index_store_table(
+            table_name=DEFAULT_IS_TABLE_SYNC,
+            schema_name="public",
+            overwrite_existing=True,
+        )
+        stmt = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{DEFAULT_IS_TABLE_SYNC}';"
+        results = await afetch(engine, stmt)
+        expected = [
+            {"column_name": "index_id", "data_type": "character varying"},
+            {"column_name": "type", "data_type": "character varying"},
+            {"column_name": "index_data", "data_type": "jsonb"},
         ]
         for row in results:
             assert row in expected
