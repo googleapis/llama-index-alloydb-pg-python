@@ -90,9 +90,10 @@ Use a vector store to store embedded data and perform vector search.
 .. code-block:: python
 
    import google.auth
-   from llama_index_alloydb_pg import AlloyDBEngine, AlloyDBVectorStore
    from llama_index.core import Settings
    from llama_index.embeddings.vertex import VertexTextEmbedding
+   from llama_index_alloydb_pg import AlloyDBEngine, AlloyDBVectorStore
+
 
    credentials, project_id = google.auth.default()
    engine = await AlloyDBEngine.afrom_instance(
