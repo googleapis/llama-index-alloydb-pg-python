@@ -178,9 +178,6 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             batch_size (int): batch_size to insert the rows. Defaults to 1.
             store_text (bool): allow the text content of the node to stored.
 
-        Raises:
-            Warning: If batch_size is less than 1 and defaults to 1.
-
         Returns:
             None
         """
