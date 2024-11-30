@@ -170,9 +170,6 @@ class AsyncAlloyDBIndexStore(BaseIndexStore):
         Args:
             struct_id (Optional[str]): index struct id
 
-        Raises:
-            Warning: If struct_id is not provided and more than 1 struct exists and returns None.
-
         """
         if struct_id is None:
             structs = await self.aindex_structs()
