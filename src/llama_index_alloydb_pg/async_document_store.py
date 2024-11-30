@@ -128,9 +128,6 @@ class AsyncAlloyDBDocumentStore(BaseDocumentStore):
             rows (List[Tuple[str, str]]): List of tuples of id and doc_hash
             batch_size (int): batch_size to insert the rows. Defaults to 1.
 
-        Raises:
-            Warning: If batch_size is less than 1 and defaults to 1.
-
         Returns:
             None
         """
