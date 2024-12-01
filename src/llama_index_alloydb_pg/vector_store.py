@@ -26,6 +26,12 @@ from llama_index.core.vector_stores.types import (
 
 from .async_vector_store import AsyncAlloyDBVectorStore
 from .engine import AlloyDBEngine
+from .indexes import (
+    DEFAULT_DISTANCE_STRATEGY,
+    BaseIndex,
+    DistanceStrategy,
+    QueryOptions,
+)
 
 
 class AlloyDBVectorStore(BasePydanticVectorStore):
@@ -78,6 +84,8 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
         node_column: str = "node_data",
         stores_text: bool = True,
         is_embedding_query: bool = True,
+        distance_strategy: DistanceStrategy = DEFAULT_DISTANCE_STRATEGY,
+        index_query_options: Optional[QueryOptions] = None,
     ) -> AlloyDBVectorStore:
         """Create an AlloyDBVectorStore instance and validates the table schema.
 
@@ -94,6 +102,8 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
             node_column (str): Column that represents the whole JSON node. Defaults to "node_data".
             stores_text (bool): Whether the table stores text. Defaults to "True".
             is_embedding_query (bool): Whether the table query can have embeddings. Defaults to "True".
+            distance_strategy (DistanceStrategy): Distance strategy to use for vector similarity search. Defaults to COSINE_DISTANCE.
+            index_query_options (QueryOptions): Index query option.
 
         Raises:
             Exception: If table does not exist or follow the provided structure.
@@ -114,6 +124,8 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
             node_column=node_column,
             stores_text=stores_text,
             is_embedding_query=is_embedding_query,
+            distance_strategy=distance_strategy,
+            index_query_options=index_query_options,
         )
         vs = await engine._run_as_async(coro)
         return cls(
@@ -139,6 +151,8 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
         node_column: str = "node_data",
         stores_text: bool = True,
         is_embedding_query: bool = True,
+        distance_strategy: DistanceStrategy = DEFAULT_DISTANCE_STRATEGY,
+        index_query_options: Optional[QueryOptions] = None,
     ) -> AlloyDBVectorStore:
         """Create an AlloyDBVectorStore instance and validates the table schema.
 
@@ -155,6 +169,8 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
             node_column (str): Column that represents the whole JSON node. Defaults to "node_data".
             stores_text (bool): Whether the table stores text. Defaults to "True".
             is_embedding_query (bool): Whether the table query can have embeddings. Defaults to "True".
+            distance_strategy (DistanceStrategy): Distance strategy to use for vector similarity search. Defaults to COSINE_DISTANCE.
+            index_query_options (QueryOptions): Index query option.
 
         Raises:
             Exception: If table does not exist or follow the provided structure.
@@ -175,6 +191,8 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
             node_column=node_column,
             stores_text=stores_text,
             is_embedding_query=is_embedding_query,
+            distance_strategy=distance_strategy,
+            index_query_options=index_query_options,
         )
         vs = engine._run_as_sync(coro)
         return cls(
@@ -265,3 +283,77 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
     def query(self, query: VectorStoreQuery, **kwargs: Any) -> VectorStoreQueryResult:
         """Synchronously query vector store."""
         return self._engine._run_as_sync(self.__vs.aquery(query, **kwargs))
+
+    async def aset_maintenance_work_mem(
+        self, num_leaves: int, vector_size: int
+    ) -> None:
+        """Set database maintenance work memory (for ScaNN index creation)."""
+        await self._engine._run_as_async(
+            self.__vs.set_maintenance_work_mem(num_leaves, vector_size)
+        )
+
+    def set_maintenance_work_mem(self, num_leaves: int, vector_size: int) -> None:
+        """Set database maintenance work memory (for ScaNN index creation)."""
+        self._engine._run_as_sync(
+            self.__vs.set_maintenance_work_mem(num_leaves, vector_size)
+        )
+
+    async def aapply_vector_index(
+        self,
+        index: BaseIndex,
+        name: Optional[str] = None,
+        concurrently: bool = False,
+    ) -> None:
+        """Create an index on the vector store table."""
+        return await self._engine._run_as_async(
+            self.__vs.aapply_vector_index(index, name, concurrently)
+        )
+
+    def apply_vector_index(
+        self,
+        index: BaseIndex,
+        name: Optional[str] = None,
+        concurrently: bool = False,
+    ) -> None:
+        """Create an index on the vector store table."""
+        return self._engine._run_as_sync(
+            self.__vs.aapply_vector_index(index, name, concurrently)
+        )
+
+    async def areindex(self, index_name: Optional[str] = None) -> None:
+        """Re-index the vector store table."""
+        return await self._engine._run_as_async(self.__vs.areindex(index_name))
+
+    def reindex(self, index_name: Optional[str] = None) -> None:
+        """Re-index the vector store table."""
+        return self._engine._run_as_sync(self.__vs.areindex(index_name))
+
+    async def adrop_vector_index(
+        self,
+        index_name: Optional[str] = None,
+    ) -> None:
+        """Drop the vector index."""
+        return await self._engine._run_as_async(
+            self.__vs.adrop_vector_index(index_name)
+        )
+
+    def drop_vector_index(
+        self,
+        index_name: Optional[str] = None,
+    ) -> None:
+        """Drop the vector index."""
+        return self._engine._run_as_sync(self.__vs.adrop_vector_index(index_name))
+
+    async def ais_valid_index(
+        self,
+        index_name: Optional[str] = None,
+    ) -> bool:
+        """Check if index exists in the table."""
+        return await self._engine._run_as_async(self.__vs.is_valid_index(index_name))
+
+    def is_valid_index(
+        self,
+        index_name: Optional[str] = None,
+    ) -> bool:
+        """Check if index exists in the table."""
+        return self._engine._run_as_sync(self.__vs.is_valid_index(index_name))
