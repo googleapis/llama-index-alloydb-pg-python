@@ -30,7 +30,7 @@ from sqlalchemy import text
 from sqlalchemy.engine.row import RowMapping
 
 from llama_index_alloydb_pg import AlloyDBEngine
-from llama_index_alloydb_pg.async_vectorstore import AsyncAlloyDBVectorStore
+from llama_index_alloydb_pg.async_vector_store import AsyncAlloyDBVectorStore
 
 DEFAULT_TABLE = "test_table" + str(uuid.uuid4())
 VECTOR_SIZE = 5

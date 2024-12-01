@@ -312,7 +312,9 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         filters: Optional[MetadataFilters] = None,
     ) -> List[BaseNode]:
         """Asynchronously get nodes from the table matching the provided nodes and filters."""
-        query = VectorStoreQuery(node_ids=node_ids, filters=filters)
+        query = VectorStoreQuery(
+            node_ids=node_ids, filters=filters, similarity_top_k=-1
+        )
         result = await self.aquery(query)
         return list(result.nodes) if result.nodes else []
 
@@ -475,9 +477,21 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         op = self.__to_postgres_operator(filter.operator)
         if filter.operator == FilterOperator.IS_EMPTY:
             # checks for emptiness of a field, so value is ignored
-            return f"({key} IS NULL OR length({key}) = 0)"
+            # cast to jsonb to check array length
+            return f"((({key})::jsonb IS NULL) OR (jsonb_array_length(({key})::jsonb) = 0))"
         if filter.operator == FilterOperator.CONTAINS:
-            return f"{key} {op} '[\"{filter.value}\"]' "
+            # Expects a list stored in the metadata, and a single value to compare
+            if isinstance(filter.value, list):
+                # skip improperly provided filter and raise a warning
+                warnings.warn(
+                    f"""Expecting a scalar in the filter value, but got {type(filter.value)}.
+                    Ignoring this filter:
+                    Key -> '{filter.key}'
+                    Operator -> '{filter.operator}'
+                    Value -> '{filter.value}'"""
+                )
+                return ""
+            return f"({key})::jsonb {op} '[\"{filter.value}\"]' "
         if filter.operator == FilterOperator.TEXT_MATCH:
             return f"{key} {op} '%{filter.value}%' "
         if filter.operator in [
@@ -499,7 +513,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
                 return ""
             filter_value = ", ".join(f"'{e}'" for e in filter.value)
             if filter.operator in [FilterOperator.ANY, FilterOperator.ALL]:
-                return f"{key} {op} (ARRAY[{filter_value}])"
+                return f"({key})::jsonb {op} (ARRAY[{filter_value}])"
             else:
                 return f"{key} {op} ({filter_value})"
 
@@ -531,9 +545,9 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         elif operator == FilterOperator.NIN:
             return "NOT IN"
         elif operator == FilterOperator.ANY:
-            return "= ANY"
+            return "?|"
         elif operator == FilterOperator.ALL:
-            return "@>"
+            return "?&"
         elif operator == FilterOperator.CONTAINS:
             return "@>"
         elif operator == FilterOperator.TEXT_MATCH:
@@ -545,9 +559,8 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             return "="
 
     def __to_postgres_key(self, key: str) -> str:
-        if key in self._metadata_columns:
-            return key
         if key in [
+            *self._metadata_columns,
             self._id_column,
             self._ref_doc_id_column,
             self._text_column,
