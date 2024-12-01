@@ -19,10 +19,10 @@ from .vector_store import AlloyDBVectorStore
 from .version import __version__
 
 _all = [
-    __version__,
-    AlloyDBDocumentStore,
-    AlloyDBVectorStore,
-    AlloyDBEngine,
-    AlloyDBIndexStore,
-    Column,
+    "AlloyDBDocumentStore",
+    "AlloyDBEngine",
+    "AlloyDBIndexStore",
+    "AlloyDBVectorStore",
+    "Column",
+    "__version__",
 ]

@@ -127,7 +127,7 @@ class TestVectorStoreAsync:
 
     @pytest_asyncio.fixture(scope="class")
     async def vs(self, engine):
-        engine.init_vector_store_table(
+        await engine.ainit_vector_store_table(
             DEFAULT_TABLE, VECTOR_SIZE, overwrite_existing=True
         )
         vs = await AlloyDBVectorStore.create(engine, table_name=DEFAULT_TABLE)
