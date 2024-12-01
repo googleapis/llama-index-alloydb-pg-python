@@ -29,16 +29,23 @@ from llama_index.core.vector_stores.types import (
 from sqlalchemy import text
 from sqlalchemy.engine.row import RowMapping
 
-from llama_index_alloydb_pg import AlloyDBEngine, AlloyDBVectorStore
+from llama_index_alloydb_pg import AlloyDBEngine
+from llama_index_alloydb_pg.vector_store import AlloyDBVectorStore
 
 DEFAULT_TABLE = "test_table" + str(uuid.uuid4())
 VECTOR_SIZE = 5
 
-texts = ["foo", "bar", "baz", "foobar", ""]
+texts = ["foo", "bar", "baz", "foobar", "foobarbaz"]
 embedding = [1.0] * VECTOR_SIZE
 nodes = [
     TextNode(
-        id_=str(uuid.uuid4()), text=texts[i], embedding=[1 / (i + 1.0)] * VECTOR_SIZE
+        id_=str(uuid.uuid4()),
+        text=texts[i],
+        embedding=[1 / (i + 1.0)] * VECTOR_SIZE,
+        metadata={  # type: ignore
+            "votes": [str(j) for j in range(i + 1)],
+            "other_texts": texts[0:i],
+        },
     )
     for i in range(len(texts))
 ]
@@ -47,10 +54,14 @@ for node in nodes:
     node.relationships[NodeRelationship.SOURCE] = node.as_related_node_info()
 
 
-async def aexecute(
-    engine: AlloyDBEngine,
-    query: str,
-) -> None:
+def get_env_var(key: str, desc: str) -> str:
+    v = os.environ.get(key)
+    if v is None:
+        raise ValueError(f"Must set env var {key} to: {desc}")
+    return v
+
+
+async def aexecute(engine: AlloyDBEngine, query: str) -> None:
     async def run(engine, query):
         async with engine._pool.connect() as conn:
             await conn.execute(text(query))
@@ -68,13 +79,6 @@ async def afetch(engine: AlloyDBEngine, query: str) -> Sequence[RowMapping]:
         return result_fetch
 
     return await engine._run_as_async(run(engine, query))
-
-
-def get_env_var(key: str, desc: str) -> str:
-    v = os.environ.get(key)
-    if v is None:
-        raise ValueError(f"Must set env var {key} to: {desc}")
-    return v
 
 
 @pytest.mark.asyncio(loop_scope="class")
@@ -108,25 +112,18 @@ class TestVectorStoreAsync:
         return get_env_var("DB_PASSWORD", "database name on AlloyDB instance")
 
     @pytest_asyncio.fixture(scope="class")
-    async def engine(
-        self,
-        db_project,
-        db_region,
-        db_cluster,
-        db_instance,
-        db_name,
-    ):
-        engine = await AlloyDBEngine.afrom_instance(
+    async def engine(self, db_project, db_region, db_cluster, db_instance, db_name):
+        sync_engine = await AlloyDBEngine.afrom_instance(
             project_id=db_project,
             instance=db_instance,
             cluster=db_cluster,
             region=db_region,
             database=db_name,
         )
+        yield sync_engine
 
-        yield engine
-        await aexecute(engine, f'DROP TABLE "{DEFAULT_TABLE}"')
-        await engine.close()
+        await aexecute(sync_engine, f'DROP TABLE "{DEFAULT_TABLE}"')
+        await sync_engine.close()
 
     @pytest_asyncio.fixture(scope="class")
     async def vs(self, engine):
@@ -200,27 +197,70 @@ class TestVectorStoreAsync:
                 metadata_json_column=test_metadata_json_column,
             )
 
+    async def test_add(self, engine, vs):
+        # Note: To be migrated to a pytest dependency on test_async_add
+        # Blocked due to unexpected fixtures reloads while running integration test suite
+        await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
+        vs.add(nodes)
+
+        results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
+        assert len(results) == 5
+
     async def test_async_add(self, engine, vs):
+        # Note: To be migrated to a pytest dependency on test_async_add
+        # Blocked due to unexpected fixtures reloads while running integration test suite
+        await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
         await vs.async_add(nodes)
 
         results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
         assert len(results) == 5
 
+    async def test_delete(self, engine, vs):
+        # Note: To be migrated to a pytest dependency on test_async_add
+        # Blocked due to unexpected fixtures reloads while running integration test suite
+        await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
+        vs.add(nodes)
+        vs.delete(nodes[0].node_id)
+
+        results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
+        assert len(results) == 4
+
     async def test_adelete(self, engine, vs):
         # Note: To be migrated to a pytest dependency on test_async_add
         # Blocked due to unexpected fixtures reloads while running integration test suite
         await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
-        await vs.async_add(nodes)
+        vs.add(nodes)
         await vs.adelete(nodes[0].node_id)
 
         results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
         assert len(results) == 4
 
+    async def test_delete_nodes(self, engine, vs):
+        # Note: To be migrated to a pytest dependency on test_async_add
+        # Blocked due to unexpected fixtures reloads while running integration test suite
+        await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
+        vs.add(nodes)
+        vs.delete_nodes(
+            node_ids=[nodes[0].node_id, nodes[1].node_id],
+            filters=MetadataFilters(
+                filters=[
+                    MetadataFilter(
+                        key="text", value="foo", operator=FilterOperator.TEXT_MATCH
+                    ),
+                    MetadataFilter(key="text", value="bar", operator=FilterOperator.EQ),
+                ],
+                condition=FilterCondition.OR,
+            ),
+        )
+
+        results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
+        assert len(results) == 3
+
     async def test_adelete_nodes(self, engine, vs):
         # Note: To be migrated to a pytest dependency on test_async_add
         # Blocked due to unexpected fixtures reloads while running integration test suite
         await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
-        await vs.async_add(nodes)
+        vs.add(nodes)
         await vs.adelete_nodes(
             node_ids=[nodes[0].node_id, nodes[1].node_id],
             filters=MetadataFilters(
@@ -237,11 +277,33 @@ class TestVectorStoreAsync:
         results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
         assert len(results) == 3
 
+    async def test_get_nodes(self, engine, vs):
+        # Note: To be migrated to a pytest dependency on test_async_add
+        # Blocked due to unexpected fixtures reloads while running integration test suite
+        await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
+        vs.add(nodes)
+        results = vs.get_nodes(
+            filters=MetadataFilters(
+                filters=[
+                    MetadataFilter(
+                        key="text", value="foo", operator=FilterOperator.TEXT_MATCH
+                    ),
+                    MetadataFilter(
+                        key="text", value="bar", operator=FilterOperator.TEXT_MATCH
+                    ),
+                ],
+                condition=FilterCondition.AND,
+            )
+        )
+
+        assert len(results) == 2
+        assert results[0].get_content(metadata_mode=MetadataMode.NONE) == "foobar"
+
     async def test_aget_nodes(self, engine, vs):
         # Note: To be migrated to a pytest dependency on test_async_add
         # Blocked due to unexpected fixtures reloads while running integration test suite
         await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
-        await vs.async_add(nodes)
+        vs.add(nodes)
         results = await vs.aget_nodes(
             filters=MetadataFilters(
                 filters=[
@@ -256,20 +318,22 @@ class TestVectorStoreAsync:
             )
         )
 
-        assert len(results) == 1
+        assert len(results) == 2
         assert results[0].get_content(metadata_mode=MetadataMode.NONE) == "foobar"
 
     async def test_aget_nodes_filter_1(self, engine, vs):
         # Note: To be migrated to a pytest dependency on test_async_add
         # Blocked due to unexpected fixtures reloads while running integration test suite
         await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
-        await vs.async_add(nodes)
+        vs.add(nodes)
         results = await vs.aget_nodes(
             filters=MetadataFilters(
                 filters=[
-                    MetadataFilter(key="text", value="foo", operator=FilterOperator.IN),
                     MetadataFilter(
-                        key="text", value="bar", operator=FilterOperator.NIN
+                        key="text", value=["foo", "fooz"], operator=FilterOperator.IN
+                    ),
+                    MetadataFilter(
+                        key="text", value=["bar", "baarz"], operator=FilterOperator.NIN
                     ),
                 ],
                 condition=FilterCondition.AND,
@@ -279,65 +343,75 @@ class TestVectorStoreAsync:
         assert len(results) == 1
         assert results[0].get_content(metadata_mode=MetadataMode.NONE) == "foo"
 
-    async def test_aget_nodes_filter_2(self, engine, vs):
+    async def test_get_nodes_filter_2(self, engine, vs):
         # Note: To be migrated to a pytest dependency on test_async_add
         # Blocked due to unexpected fixtures reloads while running integration test suite
         await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
-        await vs.async_add(nodes)
-        results = await vs.aget_nodes(
+        vs.add(nodes)
+        results = vs.get_nodes(
             filters=MetadataFilters(
                 filters=[
                     MetadataFilter(
-                        key="text", value="", operator=FilterOperator.IS_EMPTY
+                        key="other_texts",
+                        value="",
+                        operator=FilterOperator.IS_EMPTY,
                     ),
                 ],
             )
         )
 
         assert len(results) == 1
-        assert results[0].get_content(metadata_mode=MetadataMode.NONE) == ""
+        assert results[0].get_content(metadata_mode=MetadataMode.NONE) == "foo"
 
     async def test_aget_nodes_filter_3(self, engine, vs):
         # Note: To be migrated to a pytest dependency on test_async_add
         # Blocked due to unexpected fixtures reloads while running integration test suite
         await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
-        await vs.async_add(nodes)
+        nodes[0].excluded_embed_metadata_keys = ["abc", "def"]
+        vs.add(nodes)
         results = await vs.aget_nodes(
             filters=MetadataFilters(
                 filters=[
                     MetadataFilter(
-                        key="text", value="obar", operator=FilterOperator.CONTAINS
+                        key="other_texts",
+                        operator=FilterOperator.CONTAINS,
+                        value="foobar",
                     ),
                 ],
             )
         )
 
         assert len(results) == 1
-        assert results[0].get_content(metadata_mode=MetadataMode.NONE) == "foobar"
+        assert results[0].get_content(metadata_mode=MetadataMode.NONE) == "foobarbaz"
 
-    async def test_aget_nodes_filter_4(self, engine, vs):
+    async def test_get_nodes_filter_4(self, engine, vs):
         # Note: To be migrated to a pytest dependency on test_async_add
         # Blocked due to unexpected fixtures reloads while running integration test suite
         await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
-        await vs.async_add(nodes)
-        results = await vs.aget_nodes(
+        vs.add(nodes)
+        results = vs.get_nodes(
             filters=MetadataFilters(
                 filters=[
                     MetadataFilter(
-                        key="text", value=["foo", "bar"], operator=FilterOperator.ALL
+                        key="votes", value=["3", "4"], operator=FilterOperator.ANY
+                    ),
+                    MetadataFilter(
+                        key="votes", value=["3", "4"], operator=FilterOperator.ALL
                     ),
                 ],
+                condition=FilterCondition.OR,
             )
         )
 
-        assert len(results) == 1
+        assert len(results) == 2
         assert results[0].get_content(metadata_mode=MetadataMode.NONE) == "foobar"
+        assert results[1].get_content(metadata_mode=MetadataMode.NONE) == "foobarbaz"
 
     async def test_aquery(self, engine, vs):
         # Note: To be migrated to a pytest dependency on test_async_add
         # Blocked due to unexpected fixtures reloads while running integration test suite
         await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
-        await vs.async_add(nodes)
+        vs.add(nodes)
         query = VectorStoreQuery(
             query_embedding=[1.0] * VECTOR_SIZE, similarity_top_k=3
         )
@@ -349,12 +423,38 @@ class TestVectorStoreAsync:
         assert len(results.nodes) == 3
         assert results.nodes[0].get_content(metadata_mode=MetadataMode.NONE) == "foo"
 
+    async def test_query(self, engine, vs):
+        # Note: To be migrated to a pytest dependency on test_async_add
+        # Blocked due to unexpected fixtures reloads while running integration test suite
+        await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
+        vs.add(nodes)
+        query = VectorStoreQuery(
+            query_embedding=[1.0] * VECTOR_SIZE, similarity_top_k=3
+        )
+        results = vs.query(query)
+
+        assert results.nodes is not None
+        assert results.ids is not None
+        assert results.similarities is not None
+        assert len(results.nodes) == 3
+        assert results.nodes[0].get_content(metadata_mode=MetadataMode.NONE) == "foo"
+
     async def test_aclear(self, engine, vs):
         # Note: To be migrated to a pytest dependency on test_adelete
         # Blocked due to unexpected fixtures reloads while running integration test suite
         await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
-        await vs.async_add(nodes)
+        vs.add(nodes)
         await vs.aclear()
+
+        results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
+        assert len(results) == 0
+
+    async def test_clear(self, engine, vs):
+        # Note: To be migrated to a pytest dependency on test_adelete
+        # Blocked due to unexpected fixtures reloads while running integration test suite
+        await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
+        vs.add(nodes)
+        vs.clear()
 
         results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
         assert len(results) == 0
@@ -391,28 +491,21 @@ class TestVectorStoreSync:
         return get_env_var("DB_PASSWORD", "database name on AlloyDB instance")
 
     @pytest_asyncio.fixture(scope="class")
-    async def engine(
-        self,
-        db_project,
-        db_region,
-        db_cluster,
-        db_instance,
-        db_name,
-    ):
-        engine = AlloyDBEngine.from_instance(
+    async def engine(self, db_project, db_region, db_cluster, db_instance, db_name):
+        sync_engine = AlloyDBEngine.from_instance(
             project_id=db_project,
             instance=db_instance,
             cluster=db_cluster,
             region=db_region,
             database=db_name,
         )
+        yield sync_engine
 
-        yield engine
-        await aexecute(engine, f'DROP TABLE "{DEFAULT_TABLE}"')
-        await engine.close()
+        await aexecute(sync_engine, f'DROP TABLE "{DEFAULT_TABLE}"')
+        await sync_engine.close()
 
     @pytest_asyncio.fixture(scope="class")
-    def vs(self, engine):
+    async def vs(self, engine):
         engine.init_vector_store_table(
             DEFAULT_TABLE, VECTOR_SIZE, overwrite_existing=True
         )
@@ -428,7 +521,7 @@ class TestVectorStoreSync:
         with pytest.raises(
             Exception, match=f"Id column, {test_id_column}, does not exist."
         ):
-            AlloyDBVectorStore.create_sync(
+            await AlloyDBVectorStore.create(
                 engine, table_name=DEFAULT_TABLE, id_column=test_id_column
             )
 
@@ -437,7 +530,7 @@ class TestVectorStoreSync:
         with pytest.raises(
             Exception, match=f"Text column, {test_text_column}, does not exist."
         ):
-            AlloyDBVectorStore.create_sync(
+            await AlloyDBVectorStore.create(
                 engine, table_name=DEFAULT_TABLE, text_column=test_text_column
             )
 
@@ -446,7 +539,7 @@ class TestVectorStoreSync:
         with pytest.raises(
             Exception, match=f"Embedding column, {test_embed_column}, does not exist."
         ):
-            AlloyDBVectorStore.create_sync(
+            await AlloyDBVectorStore.create(
                 engine, table_name=DEFAULT_TABLE, embedding_column=test_embed_column
             )
 
@@ -455,7 +548,7 @@ class TestVectorStoreSync:
         with pytest.raises(
             Exception, match=f"Node column, {test_node_column}, does not exist."
         ):
-            AlloyDBVectorStore.create_sync(
+            await AlloyDBVectorStore.create(
                 engine, table_name=DEFAULT_TABLE, node_column=test_node_column
             )
 
@@ -465,7 +558,7 @@ class TestVectorStoreSync:
             Exception,
             match=f"Reference Document Id column, {test_ref_doc_id_column}, does not exist.",
         ):
-            AlloyDBVectorStore.create_sync(
+            await AlloyDBVectorStore.create(
                 engine,
                 table_name=DEFAULT_TABLE,
                 ref_doc_id_column=test_ref_doc_id_column,
@@ -477,14 +570,26 @@ class TestVectorStoreSync:
             Exception,
             match=f"Metadata column, {test_metadata_json_column}, does not exist.",
         ):
-            AlloyDBVectorStore.create_sync(
+            await AlloyDBVectorStore.create(
                 engine,
                 table_name=DEFAULT_TABLE,
                 metadata_json_column=test_metadata_json_column,
             )
 
     async def test_add(self, engine, vs):
+        # Note: To be migrated to a pytest dependency on test_async_add
+        # Blocked due to unexpected fixtures reloads while running integration test suite
+        await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
         vs.add(nodes)
+
+        results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
+        assert len(results) == 5
+
+    async def test_async_add(self, engine, vs):
+        # Note: To be migrated to a pytest dependency on test_async_add
+        # Blocked due to unexpected fixtures reloads while running integration test suite
+        await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
+        await vs.async_add(nodes)
 
         results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
         assert len(results) == 5
@@ -499,12 +604,43 @@ class TestVectorStoreSync:
         results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
         assert len(results) == 4
 
+    async def test_adelete(self, engine, vs):
+        # Note: To be migrated to a pytest dependency on test_async_add
+        # Blocked due to unexpected fixtures reloads while running integration test suite
+        await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
+        vs.add(nodes)
+        await vs.adelete(nodes[0].node_id)
+
+        results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
+        assert len(results) == 4
+
     async def test_delete_nodes(self, engine, vs):
         # Note: To be migrated to a pytest dependency on test_async_add
         # Blocked due to unexpected fixtures reloads while running integration test suite
         await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
         vs.add(nodes)
         vs.delete_nodes(
+            node_ids=[nodes[0].node_id, nodes[1].node_id],
+            filters=MetadataFilters(
+                filters=[
+                    MetadataFilter(
+                        key="text", value="foo", operator=FilterOperator.TEXT_MATCH
+                    ),
+                    MetadataFilter(key="text", value="bar", operator=FilterOperator.EQ),
+                ],
+                condition=FilterCondition.OR,
+            ),
+        )
+
+        results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
+        assert len(results) == 3
+
+    async def test_adelete_nodes(self, engine, vs):
+        # Note: To be migrated to a pytest dependency on test_async_add
+        # Blocked due to unexpected fixtures reloads while running integration test suite
+        await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
+        vs.add(nodes)
+        await vs.adelete_nodes(
             node_ids=[nodes[0].node_id, nodes[1].node_id],
             filters=MetadataFilters(
                 filters=[
@@ -539,7 +675,29 @@ class TestVectorStoreSync:
             )
         )
 
-        assert len(results) == 1
+        assert len(results) == 2
+        assert results[0].get_content(metadata_mode=MetadataMode.NONE) == "foobar"
+
+    async def test_aget_nodes(self, engine, vs):
+        # Note: To be migrated to a pytest dependency on test_async_add
+        # Blocked due to unexpected fixtures reloads while running integration test suite
+        await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
+        vs.add(nodes)
+        results = await vs.aget_nodes(
+            filters=MetadataFilters(
+                filters=[
+                    MetadataFilter(
+                        key="text", value="foo", operator=FilterOperator.TEXT_MATCH
+                    ),
+                    MetadataFilter(
+                        key="text", value="bar", operator=FilterOperator.TEXT_MATCH
+                    ),
+                ],
+                condition=FilterCondition.AND,
+            )
+        )
+
+        assert len(results) == 2
         assert results[0].get_content(metadata_mode=MetadataMode.NONE) == "foobar"
 
     async def test_aget_nodes_filter_1(self, engine, vs):
@@ -547,12 +705,14 @@ class TestVectorStoreSync:
         # Blocked due to unexpected fixtures reloads while running integration test suite
         await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
         vs.add(nodes)
-        results = vs.get_nodes(
+        results = await vs.aget_nodes(
             filters=MetadataFilters(
                 filters=[
-                    MetadataFilter(key="text", value="foo", operator=FilterOperator.IN),
                     MetadataFilter(
-                        key="text", value="bar", operator=FilterOperator.NIN
+                        key="text", value=["foo", "fooz"], operator=FilterOperator.IN
+                    ),
+                    MetadataFilter(
+                        key="text", value=["bar", "baarz"], operator=FilterOperator.NIN
                     ),
                 ],
                 condition=FilterCondition.AND,
@@ -571,32 +731,37 @@ class TestVectorStoreSync:
             filters=MetadataFilters(
                 filters=[
                     MetadataFilter(
-                        key="text", value="", operator=FilterOperator.IS_EMPTY
+                        key="other_texts",
+                        value="",
+                        operator=FilterOperator.IS_EMPTY,
                     ),
                 ],
             )
         )
 
         assert len(results) == 1
-        assert results[0].get_content(metadata_mode=MetadataMode.NONE) == ""
+        assert results[0].get_content(metadata_mode=MetadataMode.NONE) == "foo"
 
-    async def test_get_nodes_filter_3(self, engine, vs):
+    async def test_aget_nodes_filter_3(self, engine, vs):
         # Note: To be migrated to a pytest dependency on test_async_add
         # Blocked due to unexpected fixtures reloads while running integration test suite
         await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
+        nodes[0].excluded_embed_metadata_keys = ["abc", "def"]
         vs.add(nodes)
-        results = vs.get_nodes(
+        results = await vs.aget_nodes(
             filters=MetadataFilters(
                 filters=[
                     MetadataFilter(
-                        key="text", value="obar", operator=FilterOperator.CONTAINS
+                        key="other_texts",
+                        operator=FilterOperator.CONTAINS,
+                        value="foobar",
                     ),
                 ],
             )
         )
 
         assert len(results) == 1
-        assert results[0].get_content(metadata_mode=MetadataMode.NONE) == "foobar"
+        assert results[0].get_content(metadata_mode=MetadataMode.NONE) == "foobarbaz"
 
     async def test_get_nodes_filter_4(self, engine, vs):
         # Note: To be migrated to a pytest dependency on test_async_add
@@ -607,16 +772,37 @@ class TestVectorStoreSync:
             filters=MetadataFilters(
                 filters=[
                     MetadataFilter(
-                        key="text", value=["foo", "bar"], operator=FilterOperator.ALL
+                        key="votes", value=["3", "4"], operator=FilterOperator.ANY
+                    ),
+                    MetadataFilter(
+                        key="votes", value=["3", "4"], operator=FilterOperator.ALL
                     ),
                 ],
+                condition=FilterCondition.OR,
             )
         )
 
-        assert len(results) == 1
+        assert len(results) == 2
         assert results[0].get_content(metadata_mode=MetadataMode.NONE) == "foobar"
+        assert results[1].get_content(metadata_mode=MetadataMode.NONE) == "foobarbaz"
 
     async def test_aquery(self, engine, vs):
+        # Note: To be migrated to a pytest dependency on test_async_add
+        # Blocked due to unexpected fixtures reloads while running integration test suite
+        await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
+        vs.add(nodes)
+        query = VectorStoreQuery(
+            query_embedding=[1.0] * VECTOR_SIZE, similarity_top_k=3
+        )
+        results = await vs.aquery(query)
+
+        assert results.nodes is not None
+        assert results.ids is not None
+        assert results.similarities is not None
+        assert len(results.nodes) == 3
+        assert results.nodes[0].get_content(metadata_mode=MetadataMode.NONE) == "foo"
+
+    async def test_query(self, engine, vs):
         # Note: To be migrated to a pytest dependency on test_async_add
         # Blocked due to unexpected fixtures reloads while running integration test suite
         await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
@@ -633,6 +819,16 @@ class TestVectorStoreSync:
         assert results.nodes[0].get_content(metadata_mode=MetadataMode.NONE) == "foo"
 
     async def test_aclear(self, engine, vs):
+        # Note: To be migrated to a pytest dependency on test_adelete
+        # Blocked due to unexpected fixtures reloads while running integration test suite
+        await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')
+        vs.add(nodes)
+        await vs.aclear()
+
+        results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
+        assert len(results) == 0
+
+    async def test_clear(self, engine, vs):
         # Note: To be migrated to a pytest dependency on test_adelete
         # Blocked due to unexpected fixtures reloads while running integration test suite
         await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE}"')

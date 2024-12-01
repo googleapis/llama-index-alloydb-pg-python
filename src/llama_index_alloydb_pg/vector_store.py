@@ -24,7 +24,7 @@ from llama_index.core.vector_stores.types import (
     VectorStoreQueryResult,
 )
 
-from .async_vectorstore import AsyncAlloyDBVectorStore
+from .async_vector_store import AsyncAlloyDBVectorStore
 from .engine import AlloyDBEngine
 
 
@@ -45,10 +45,9 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
         Args:
             key (object): Prevent direct constructor usage.
             engine (AlloyDBEngine): Connection pool engine for managing connections to Postgres database.
-            vs (AsyncAlloyDBVectorstore): The async only VectorStore implementation
+            vs (AsyncAlloyDBVectorStore): The async only Vector Store implementation
             stores_text (bool): Whether the table stores text. Defaults to "True".
             is_embedding_query (bool): Whether the table query can have embeddings. Defaults to "True".
-
 
         Raises:
             Exception: If called directly by user.
@@ -105,16 +104,16 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
         coro = AsyncAlloyDBVectorStore.create(
             engine,
             table_name,
-            schema_name,
-            id_column,
-            text_column,
-            embedding_column,
-            metadata_json_column,
-            metadata_columns,
-            ref_doc_id_column,
-            node_column,
-            stores_text,
-            is_embedding_query,
+            schema_name=schema_name,
+            id_column=id_column,
+            text_column=text_column,
+            embedding_column=embedding_column,
+            metadata_json_column=metadata_json_column,
+            metadata_columns=metadata_columns,
+            ref_doc_id_column=ref_doc_id_column,
+            node_column=node_column,
+            stores_text=stores_text,
+            is_embedding_query=is_embedding_query,
         )
         vs = await engine._run_as_async(coro)
         return cls(
@@ -166,16 +165,16 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
         coro = AsyncAlloyDBVectorStore.create(
             engine,
             table_name,
-            schema_name,
-            id_column,
-            text_column,
-            embedding_column,
-            metadata_json_column,
-            metadata_columns,
-            ref_doc_id_column,
-            node_column,
-            stores_text,
-            is_embedding_query,
+            schema_name=schema_name,
+            id_column=id_column,
+            text_column=text_column,
+            embedding_column=embedding_column,
+            metadata_json_column=metadata_json_column,
+            metadata_columns=metadata_columns,
+            ref_doc_id_column=ref_doc_id_column,
+            node_column=node_column,
+            stores_text=stores_text,
+            is_embedding_query=is_embedding_query,
         )
         vs = engine._run_as_sync(coro)
         return cls(
@@ -197,25 +196,19 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
 
     async def async_add(self, nodes: Sequence[BaseNode], **kwargs: Any) -> List[str]:
         """Asynchronously add nodes to the table."""
-
         return await self._engine._run_as_async(self.__vs.async_add(nodes, **kwargs))
 
     def add(self, nodes: Sequence[BaseNode], **add_kwargs: Any) -> List[str]:
         """Synchronously add nodes to the table."""
-
         return self._engine._run_as_sync(self.__vs.async_add(nodes, **add_kwargs))
 
     async def adelete(self, ref_doc_id: str, **delete_kwargs: Any) -> None:
         """Asynchronously delete nodes belonging to provided parent document from the table."""
-
-        return await self._engine._run_as_async(
-            self.__vs.adelete(ref_doc_id, **delete_kwargs)
-        )
+        await self._engine._run_as_async(self.__vs.adelete(ref_doc_id, **delete_kwargs))
 
     def delete(self, ref_doc_id: str, **delete_kwargs: Any) -> None:
         """Synchronously delete nodes belonging to provided parent document from the table."""
-
-        return self._engine._run_as_sync(self.__vs.adelete(ref_doc_id, **delete_kwargs))
+        self._engine._run_as_sync(self.__vs.adelete(ref_doc_id, **delete_kwargs))
 
     async def adelete_nodes(
         self,
@@ -224,8 +217,7 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
         **delete_kwargs: Any,
     ) -> None:
         """Asynchronously delete a set of nodes from the table matching the provided nodes and filters."""
-
-        return await self._engine._run_as_async(
+        await self._engine._run_as_async(
             self.__vs.adelete_nodes(node_ids, filters, **delete_kwargs)
         )
 
@@ -236,14 +228,13 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
         **delete_kwargs: Any,
     ) -> None:
         """Synchronously delete a set of nodes from the table matching the provided nodes and filters."""
-        return self._engine._run_as_sync(
+        self._engine._run_as_sync(
             self.__vs.adelete_nodes(node_ids, filters, **delete_kwargs)
         )
 
     async def aclear(self) -> None:
         """Asynchronously delete all nodes from the table."""
-
-        return await self._engine._run_as_async(self.__vs.aclear())
+        await self._engine._run_as_async(self.__vs.aclear())
 
     def clear(self) -> None:
         """Synchronously delete all nodes from the table."""
@@ -255,7 +246,6 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
         filters: Optional[MetadataFilters] = None,
     ) -> List[BaseNode]:
         """Asynchronously get nodes from the table matching the provided nodes and filters."""
-
         return await self._engine._run_as_async(self.__vs.aget_nodes(node_ids, filters))
 
     def get_nodes(
@@ -264,7 +254,6 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
         filters: Optional[MetadataFilters] = None,
     ) -> List[BaseNode]:
         """Asynchronously get nodes from the table matching the provided nodes and filters."""
-
         return self._engine._run_as_sync(self.__vs.aget_nodes(node_ids, filters))
 
     async def aquery(
