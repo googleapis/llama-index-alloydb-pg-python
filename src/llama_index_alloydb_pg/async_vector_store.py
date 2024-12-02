@@ -42,6 +42,15 @@ from sqlalchemy import RowMapping, text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from .engine import AlloyDBEngine
+from .indexes import (
+    DEFAULT_DISTANCE_STRATEGY,
+    DEFAULT_INDEX_NAME_SUFFIX,
+    BaseIndex,
+    DistanceStrategy,
+    ExactNearestNeighbor,
+    QueryOptions,
+    ScaNNIndex,
+)
 
 
 class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
@@ -67,6 +76,8 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         node_column: str = "node_data",
         stores_text: bool = True,
         is_embedding_query: bool = True,
+        distance_strategy: DistanceStrategy = DEFAULT_DISTANCE_STRATEGY,
+        index_query_options: Optional[QueryOptions] = None,
     ):
         """AsyncAlloyDBVectorStore constructor.
         Args:
@@ -83,6 +94,8 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             node_column (str): Column that represents the whole JSON node. Defaults to "node_data".
             stores_text (bool): Whether the table stores text. Defaults to "True".
             is_embedding_query (bool): Whether the table query can have embeddings. Defaults to "True".
+            distance_strategy (DistanceStrategy): Distance strategy to use for vector similarity search. Defaults to COSINE_DISTANCE.
+            index_query_options (QueryOptions): Index query option.
 
 
         Raises:
@@ -103,6 +116,8 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         self._metadata_columns = metadata_columns
         self._ref_doc_id_column = ref_doc_id_column
         self._node_column = node_column
+        self._distance_strategy = distance_strategy
+        self._index_query_options = index_query_options
 
     @classmethod
     async def create(
@@ -119,6 +134,8 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         node_column: str = "node_data",
         stores_text: bool = True,
         is_embedding_query: bool = True,
+        distance_strategy: DistanceStrategy = DEFAULT_DISTANCE_STRATEGY,
+        index_query_options: Optional[QueryOptions] = None,
     ) -> AsyncAlloyDBVectorStore:
         """Create an AsyncAlloyDBVectorStore instance and validates the table schema.
 
@@ -135,6 +152,8 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             node_column (str): Column that represents the whole JSON node. Defaults to "node_data".
             stores_text (bool): Whether the table stores text. Defaults to "True".
             is_embedding_query (bool): Whether the table query can have embeddings. Defaults to "True".
+            distance_strategy (DistanceStrategy): Distance strategy to use for vector similarity search. Defaults to COSINE_DISTANCE.
+            index_query_options (QueryOptions): Index query option.
 
         Raises:
             Exception: If table does not exist or follow the provided structure.
@@ -202,6 +221,8 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             node_column=node_column,
             stores_text=stores_text,
             is_embedding_query=is_embedding_query,
+            distance_strategy=distance_strategy,
+            index_query_options=index_query_options,
         )
 
     @classmethod
@@ -384,6 +405,90 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             "Sync methods are not implemented for AsyncAlloyDBVectorStore. Use AlloyDBVectorStore interface instead."
         )
 
+    async def set_maintenance_work_mem(self, num_leaves: int, vector_size: int) -> None:
+        """Set database maintenance work memory (for ScaNN index creation)."""
+        # Required index memory in MB
+        buffer = 1
+        index_memory_required = (
+            round(50 * num_leaves * vector_size * 4 / 1024 / 1024) + buffer
+        )  # Convert bytes to MB
+        query = f"SET maintenance_work_mem TO '{index_memory_required} MB';"
+        async with self._engine.connect() as conn:
+            await conn.execute(text(query))
+            await conn.commit()
+
+    async def aapply_vector_index(
+        self,
+        index: BaseIndex,
+        name: Optional[str] = None,
+        concurrently: bool = False,
+    ) -> None:
+        """Create index in the vector store table."""
+        if isinstance(index, ExactNearestNeighbor):
+            await self.adrop_vector_index()
+            return
+
+        # Create `alloydb_scann` extension when a `ScaNN` index is applied
+        if isinstance(index, ScaNNIndex):
+            async with self._engine.connect() as conn:
+                await conn.execute(text("CREATE EXTENSION IF NOT EXISTS alloydb_scann"))
+                await conn.commit()
+            function = index.distance_strategy.scann_index_function
+        else:
+            function = index.distance_strategy.index_function
+
+        filter = f"WHERE ({index.partial_indexes})" if index.partial_indexes else ""
+        params = "WITH " + index.index_options()
+        if name is None:
+            if index.name == None:
+                index.name = self._table_name + DEFAULT_INDEX_NAME_SUFFIX
+            name = index.name
+        stmt = f"CREATE INDEX {'CONCURRENTLY' if concurrently else ''} {name} ON \"{self._schema_name}\".\"{self._table_name}\" USING {index.index_type} ({self._embedding_column} {function}) {params} {filter};"
+        if concurrently:
+            async with self._engine.connect() as conn:
+                await conn.execute(text("COMMIT"))
+                await conn.execute(text(stmt))
+        else:
+            async with self._engine.connect() as conn:
+                await conn.execute(text(stmt))
+                await conn.commit()
+
+    async def areindex(self, index_name: Optional[str] = None) -> None:
+        """Re-index the vector store table."""
+        index_name = index_name or self._table_name + DEFAULT_INDEX_NAME_SUFFIX
+        query = f"REINDEX INDEX {index_name};"
+        async with self._engine.connect() as conn:
+            await conn.execute(text(query))
+            await conn.commit()
+
+    async def adrop_vector_index(
+        self,
+        index_name: Optional[str] = None,
+    ) -> None:
+        """Drop the vector index."""
+        index_name = index_name or self._table_name + DEFAULT_INDEX_NAME_SUFFIX
+        query = f"DROP INDEX IF EXISTS {index_name};"
+        async with self._engine.connect() as conn:
+            await conn.execute(text(query))
+            await conn.commit()
+
+    async def is_valid_index(
+        self,
+        index_name: Optional[str] = None,
+    ) -> bool:
+        """Check if index exists in the table."""
+        index_name = index_name or self._table_name + DEFAULT_INDEX_NAME_SUFFIX
+        query = f"""
+        SELECT tablename, indexname
+        FROM pg_indexes
+        WHERE tablename = '{self._table_name}' AND schemaname = '{self._schema_name}' AND indexname = '{index_name}';
+        """
+        async with self._engine.connect() as conn:
+            result = await conn.execute(text(query))
+            result_map = result.mappings()
+            results = result_map.fetchall()
+        return bool(len(results) == 1)
+
     async def __query_columns(
         self,
         query: VectorStoreQuery,
@@ -418,17 +523,19 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
 
         filters_stmt = self.__parse_metadata_filters_recursively(query_filters)
         filters_stmt = f"WHERE {filters_stmt}" if filters_stmt else ""
+        operator = self._distance_strategy.operator
+        search_function = self._distance_strategy.search_function
 
         # query_embedding is used for scoring
         scoring_stmt = (
-            f", cosine_distance({self._embedding_column}, '{query.query_embedding}') as distance"
+            f", {search_function}({self._embedding_column}, '{query.query_embedding}') as distance"
             if query.query_embedding
             else ""
         )
 
         # results are sorted on ORDER BY query_embedding
         order_stmt = (
-            f" ORDER BY {self._embedding_column} <=> '{query.query_embedding}' "
+            f" ORDER BY {self._embedding_column} {operator} '{query.query_embedding}' "
             if query.query_embedding
             else ""
         )
@@ -440,6 +547,11 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
 
         query_stmt = f'SELECT * {scoring_stmt} FROM "{self._schema_name}"."{self._table_name}" {filters_stmt} {order_stmt} {limit_stmt}'
         async with self._engine.connect() as conn:
+            if self._index_query_options:
+                query_options_stmt = (
+                    f"SET LOCAL {self._index_query_options.to_string()};"
+                )
+                await conn.execute(text(query_options_stmt))
             result = await conn.execute(text(query_stmt))
             result_map = result.mappings()
             results = result_map.fetchall()

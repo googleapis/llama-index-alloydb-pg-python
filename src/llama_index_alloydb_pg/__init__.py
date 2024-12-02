@@ -15,11 +15,14 @@
 from .document_store import AlloyDBDocumentStore
 from .engine import AlloyDBEngine, Column
 from .index_store import AlloyDBIndexStore
+from .vector_store import AlloyDBVectorStore
+from .version import __version__
 
 _all = [
     "AlloyDBDocumentStore",
     "AlloyDBEngine",
     "AlloyDBIndexStore",
+    "AlloyDBVectorStore",
     "Column",
     "__version__",
 ]
