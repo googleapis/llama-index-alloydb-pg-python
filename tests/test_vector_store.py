@@ -18,6 +18,7 @@ from typing import List, Sequence
 
 import pytest
 import pytest_asyncio
+from llama_index.core import Document, StorageContext, VectorStoreIndex
 from llama_index.core.schema import MetadataMode, NodeRelationship, TextNode
 from llama_index.core.vector_stores.types import (
     FilterCondition,
@@ -30,9 +31,10 @@ from sqlalchemy import text
 from sqlalchemy.engine.row import RowMapping
 
 from llama_index_alloydb_pg import AlloyDBEngine
-from llama_index_alloydb_pg.vector_store import AlloyDBVectorStore
+from llama_index_alloydb_pg.vector_store import AlloyDBVectorStore, Column
 
 DEFAULT_TABLE = "test_table" + str(uuid.uuid4())
+DEFAULT_TABLE_CUSTOM_VS = "test_table" + str(uuid.uuid4())
 VECTOR_SIZE = 5
 
 texts = ["foo", "bar", "baz", "foobar", "foobarbaz"]
@@ -133,6 +135,57 @@ class TestVectorStoreAsync:
         vs = await AlloyDBVectorStore.create(engine, table_name=DEFAULT_TABLE)
         yield vs
 
+    @pytest_asyncio.fixture(scope="class")
+    async def custom_vs(self, engine):
+        await engine.ainit_vector_store_table(
+            DEFAULT_TABLE_CUSTOM_VS,
+            VECTOR_SIZE,
+            overwrite_existing=True,
+            metadata_columns=[
+                Column(name="len", data_type="INTEGER", nullable=False),
+                Column(
+                    name="nullable_int_field",
+                    data_type="INTEGER",
+                    nullable=True,
+                ),
+                Column(
+                    name="nullable_str_field",
+                    data_type="VARCHAR",
+                    nullable=True,
+                ),
+            ],
+        )
+        vs = await AlloyDBVectorStore.create(
+            engine,
+            table_name=DEFAULT_TABLE_CUSTOM_VS,
+            metadata_columns=[
+                "len",
+                "nullable_int_field",
+                "nullable_str_field",
+            ],
+        )
+        yield vs
+
+    async def test_custom_vs(self, vs_custom):
+        fruits = ["apple", "pear", "orange", "strawberry", "banana", "kiwi"]
+        documents = [
+            Document(text=fruit, metadata={"len": len(fruit)}) for fruit in fruits
+        ]
+
+        storage_context = StorageContext.from_defaults(vector_store=vs_custom)
+        custom_doc_index = VectorStoreIndex.from_documents(
+            documents, storage_context=storage_context, show_progress=True
+        )
+
+        filters = MetadataFilters(
+            filters=[
+                MetadataFilter(key="len", operator=FilterOperator.GT, value="5"),
+            ],
+        )
+        query_engine = custom_doc_index.as_query_engine(filters=filters)
+        results = query_engine.query("List some fruits")
+        assert reults
+
     async def test_init_with_constructor(self, engine):
         with pytest.raises(Exception):
             AlloyDBVectorStore(engine, table_name=DEFAULT_TABLE)
@@ -158,10 +211,13 @@ class TestVectorStoreAsync:
     async def test_validate_embedding_column_create(self, engine, vs):
         test_embed_column = "test_embed_column"
         with pytest.raises(
-            Exception, match=f"Embedding column, {test_embed_column}, does not exist."
+            Exception,
+            match=f"Embedding column, {test_embed_column}, does not exist.",
         ):
             await AlloyDBVectorStore.create(
-                engine, table_name=DEFAULT_TABLE, embedding_column=test_embed_column
+                engine,
+                table_name=DEFAULT_TABLE,
+                embedding_column=test_embed_column,
             )
 
     async def test_validate_node_column_create(self, engine, vs):
@@ -245,7 +301,9 @@ class TestVectorStoreAsync:
             filters=MetadataFilters(
                 filters=[
                     MetadataFilter(
-                        key="text", value="foo", operator=FilterOperator.TEXT_MATCH
+                        key="text",
+                        value="foo",
+                        operator=FilterOperator.TEXT_MATCH,
                     ),
                     MetadataFilter(key="text", value="bar", operator=FilterOperator.EQ),
                 ],
@@ -266,7 +324,9 @@ class TestVectorStoreAsync:
             filters=MetadataFilters(
                 filters=[
                     MetadataFilter(
-                        key="text", value="foo", operator=FilterOperator.TEXT_MATCH
+                        key="text",
+                        value="foo",
+                        operator=FilterOperator.TEXT_MATCH,
                     ),
                     MetadataFilter(key="text", value="bar", operator=FilterOperator.EQ),
                 ],
@@ -286,10 +346,14 @@ class TestVectorStoreAsync:
             filters=MetadataFilters(
                 filters=[
                     MetadataFilter(
-                        key="text", value="foo", operator=FilterOperator.TEXT_MATCH
+                        key="text",
+                        value="foo",
+                        operator=FilterOperator.TEXT_MATCH,
                     ),
                     MetadataFilter(
-                        key="text", value="bar", operator=FilterOperator.TEXT_MATCH
+                        key="text",
+                        value="bar",
+                        operator=FilterOperator.TEXT_MATCH,
                     ),
                 ],
                 condition=FilterCondition.AND,
@@ -308,10 +372,14 @@ class TestVectorStoreAsync:
             filters=MetadataFilters(
                 filters=[
                     MetadataFilter(
-                        key="text", value="foo", operator=FilterOperator.TEXT_MATCH
+                        key="text",
+                        value="foo",
+                        operator=FilterOperator.TEXT_MATCH,
                     ),
                     MetadataFilter(
-                        key="text", value="bar", operator=FilterOperator.TEXT_MATCH
+                        key="text",
+                        value="bar",
+                        operator=FilterOperator.TEXT_MATCH,
                     ),
                 ],
                 condition=FilterCondition.AND,
@@ -330,10 +398,14 @@ class TestVectorStoreAsync:
             filters=MetadataFilters(
                 filters=[
                     MetadataFilter(
-                        key="text", value=["foo", "fooz"], operator=FilterOperator.IN
+                        key="text",
+                        value=["foo", "fooz"],
+                        operator=FilterOperator.IN,
                     ),
                     MetadataFilter(
-                        key="text", value=["bar", "baarz"], operator=FilterOperator.NIN
+                        key="text",
+                        value=["bar", "baarz"],
+                        operator=FilterOperator.NIN,
                     ),
                 ],
                 condition=FilterCondition.AND,
@@ -393,10 +465,14 @@ class TestVectorStoreAsync:
             filters=MetadataFilters(
                 filters=[
                     MetadataFilter(
-                        key="votes", value=["3", "4"], operator=FilterOperator.ANY
+                        key="votes",
+                        value=["3", "4"],
+                        operator=FilterOperator.ANY,
                     ),
                     MetadataFilter(
-                        key="votes", value=["3", "4"], operator=FilterOperator.ALL
+                        key="votes",
+                        value=["3", "4"],
+                        operator=FilterOperator.ALL,
                     ),
                 ],
                 condition=FilterCondition.OR,
@@ -537,10 +613,13 @@ class TestVectorStoreSync:
     async def test_validate_embedding_column_create(self, engine, vs):
         test_embed_column = "test_embed_column"
         with pytest.raises(
-            Exception, match=f"Embedding column, {test_embed_column}, does not exist."
+            Exception,
+            match=f"Embedding column, {test_embed_column}, does not exist.",
         ):
             await AlloyDBVectorStore.create(
-                engine, table_name=DEFAULT_TABLE, embedding_column=test_embed_column
+                engine,
+                table_name=DEFAULT_TABLE,
+                embedding_column=test_embed_column,
             )
 
     async def test_validate_node_column_create(self, engine, vs):
@@ -624,7 +703,9 @@ class TestVectorStoreSync:
             filters=MetadataFilters(
                 filters=[
                     MetadataFilter(
-                        key="text", value="foo", operator=FilterOperator.TEXT_MATCH
+                        key="text",
+                        value="foo",
+                        operator=FilterOperator.TEXT_MATCH,
                     ),
                     MetadataFilter(key="text", value="bar", operator=FilterOperator.EQ),
                 ],
@@ -645,7 +726,9 @@ class TestVectorStoreSync:
             filters=MetadataFilters(
                 filters=[
                     MetadataFilter(
-                        key="text", value="foo", operator=FilterOperator.TEXT_MATCH
+                        key="text",
+                        value="foo",
+                        operator=FilterOperator.TEXT_MATCH,
                     ),
                     MetadataFilter(key="text", value="bar", operator=FilterOperator.EQ),
                 ],
@@ -665,10 +748,14 @@ class TestVectorStoreSync:
             filters=MetadataFilters(
                 filters=[
                     MetadataFilter(
-                        key="text", value="foo", operator=FilterOperator.TEXT_MATCH
+                        key="text",
+                        value="foo",
+                        operator=FilterOperator.TEXT_MATCH,
                     ),
                     MetadataFilter(
-                        key="text", value="bar", operator=FilterOperator.TEXT_MATCH
+                        key="text",
+                        value="bar",
+                        operator=FilterOperator.TEXT_MATCH,
                     ),
                 ],
                 condition=FilterCondition.AND,
@@ -687,10 +774,14 @@ class TestVectorStoreSync:
             filters=MetadataFilters(
                 filters=[
                     MetadataFilter(
-                        key="text", value="foo", operator=FilterOperator.TEXT_MATCH
+                        key="text",
+                        value="foo",
+                        operator=FilterOperator.TEXT_MATCH,
                     ),
                     MetadataFilter(
-                        key="text", value="bar", operator=FilterOperator.TEXT_MATCH
+                        key="text",
+                        value="bar",
+                        operator=FilterOperator.TEXT_MATCH,
                     ),
                 ],
                 condition=FilterCondition.AND,
@@ -709,10 +800,14 @@ class TestVectorStoreSync:
             filters=MetadataFilters(
                 filters=[
                     MetadataFilter(
-                        key="text", value=["foo", "fooz"], operator=FilterOperator.IN
+                        key="text",
+                        value=["foo", "fooz"],
+                        operator=FilterOperator.IN,
                     ),
                     MetadataFilter(
-                        key="text", value=["bar", "baarz"], operator=FilterOperator.NIN
+                        key="text",
+                        value=["bar", "baarz"],
+                        operator=FilterOperator.NIN,
                     ),
                 ],
                 condition=FilterCondition.AND,
@@ -772,10 +867,14 @@ class TestVectorStoreSync:
             filters=MetadataFilters(
                 filters=[
                     MetadataFilter(
-                        key="votes", value=["3", "4"], operator=FilterOperator.ANY
+                        key="votes",
+                        value=["3", "4"],
+                        operator=FilterOperator.ANY,
                     ),
                     MetadataFilter(
-                        key="votes", value=["3", "4"], operator=FilterOperator.ALL
+                        key="votes",
+                        value=["3", "4"],
+                        operator=FilterOperator.ALL,
                     ),
                 ],
                 condition=FilterCondition.OR,
