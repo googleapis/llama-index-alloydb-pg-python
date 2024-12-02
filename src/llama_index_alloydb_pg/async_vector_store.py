@@ -243,7 +243,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             else ""
         )
         metadata_col_values = (
-            ", " + ", :".join(self._metadata_columns)
+            ", :" + ", :".join(self._metadata_columns)
             if len(self._metadata_columns) > 0
             else ""
         )
@@ -273,7 +273,10 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
                 "node_data": node.to_json(),
             }
             for metadata_column in self._metadata_columns:
-                node_values[metadata_column] = node.metadata.get(metadata_column)
+                if metadata_column in node.metadata:
+                    node_values[metadata_column] = node.metadata.get(metadata_column)
+                else:
+                    node_values[metadata_column] = None
             node_values_list.append(node_values)
             ids.append(node.node_id)
         async with self._engine.connect() as conn:

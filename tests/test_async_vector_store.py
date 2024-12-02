@@ -29,17 +29,20 @@ from llama_index.core.vector_stores.types import (
 from sqlalchemy import text
 from sqlalchemy.engine.row import RowMapping
 
-from llama_index_alloydb_pg import AlloyDBEngine
+from llama_index_alloydb_pg import AlloyDBEngine, Column
 from llama_index_alloydb_pg.async_vector_store import AsyncAlloyDBVectorStore
 
 DEFAULT_TABLE = "test_table" + str(uuid.uuid4())
-VECTOR_SIZE = 5
+DEFAULT_TABLE_CUSTOM_VS = "test_table" + str(uuid.uuid4())
+VECTOR_SIZE = 768
 
 texts = ["foo", "bar", "baz", "foobar"]
 embedding = [1.0] * VECTOR_SIZE
 nodes = [
     TextNode(
-        id_=str(uuid.uuid4()), text=texts[i], embedding=[1 / (i + 1.0)] * VECTOR_SIZE
+        id_=str(uuid.uuid4()),
+        text=texts[i],
+        embedding=[1 / (i + 1.0)] * VECTOR_SIZE,
     )
     for i in range(len(texts))
 ]
@@ -112,6 +115,7 @@ class TestVectorStore:
 
         yield engine
         await aexecute(engine, f'DROP TABLE "{DEFAULT_TABLE}"')
+        await aexecute(engine, f'DROP TABLE "{DEFAULT_TABLE_CUSTOM_VS}"')
         await engine.close()
 
     @pytest_asyncio.fixture(scope="class")
@@ -120,6 +124,37 @@ class TestVectorStore:
             DEFAULT_TABLE, VECTOR_SIZE, overwrite_existing=True
         )
         vs = await AsyncAlloyDBVectorStore.create(engine, table_name=DEFAULT_TABLE)
+        yield vs
+
+    @pytest_asyncio.fixture(scope="class")
+    async def custom_vs(self, engine):
+        await engine._ainit_vector_store_table(
+            DEFAULT_TABLE_CUSTOM_VS,
+            VECTOR_SIZE,
+            overwrite_existing=True,
+            metadata_columns=[
+                Column(name="len", data_type="INTEGER", nullable=False),
+                Column(
+                    name="nullable_int_field",
+                    data_type="INTEGER",
+                    nullable=True,
+                ),
+                Column(
+                    name="nullable_str_field",
+                    data_type="VARCHAR",
+                    nullable=True,
+                ),
+            ],
+        )
+        vs = await AsyncAlloyDBVectorStore.create(
+            engine,
+            table_name=DEFAULT_TABLE_CUSTOM_VS,
+            metadata_columns=[
+                "len",
+                "nullable_int_field",
+                "nullable_str_field",
+            ],
+        )
         yield vs
 
     async def test_init_with_constructor(self, engine):
@@ -147,10 +182,13 @@ class TestVectorStore:
     async def test_validate_embedding_column_create(self, engine, vs):
         test_embed_column = "test_embed_column"
         with pytest.raises(
-            Exception, match=f"Embedding column, {test_embed_column}, does not exist."
+            Exception,
+            match=f"Embedding column, {test_embed_column}, does not exist.",
         ):
             await AsyncAlloyDBVectorStore.create(
-                engine, table_name=DEFAULT_TABLE, embedding_column=test_embed_column
+                engine,
+                table_name=DEFAULT_TABLE,
+                embedding_column=test_embed_column,
             )
 
     async def test_validate_node_column_create(self, engine, vs):
@@ -192,6 +230,19 @@ class TestVectorStore:
         results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
         assert len(results) == 4
 
+    async def test_async_add_custom_vs(self, engine, custom_vs):
+        # setting extra metadata to be indexed in separate column
+        for node in nodes:
+            node.metadata["len"] = len(node.text)
+
+        await custom_vs.async_add(nodes)
+
+        results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE_CUSTOM_VS}"')
+        assert len(results) == 4
+        assert results[0]["len"] == 3
+        assert results[0]["nullable_int_field"] == None
+        assert results[0]["nullable_str_field"] == None
+
     async def test_adelete(self, engine, vs):
         # Note: To be migrated to a pytest dependency on test_async_add
         # Blocked due to unexpected fixtures reloads while running integration test suite
@@ -212,7 +263,9 @@ class TestVectorStore:
             filters=MetadataFilters(
                 filters=[
                     MetadataFilter(
-                        key="text", value="foo", operator=FilterOperator.TEXT_MATCH
+                        key="text",
+                        value="foo",
+                        operator=FilterOperator.TEXT_MATCH,
                     ),
                     MetadataFilter(key="text", value="bar", operator=FilterOperator.EQ),
                 ],
@@ -232,10 +285,14 @@ class TestVectorStore:
             filters=MetadataFilters(
                 filters=[
                     MetadataFilter(
-                        key="text", value="foo", operator=FilterOperator.TEXT_MATCH
+                        key="text",
+                        value="foo",
+                        operator=FilterOperator.TEXT_MATCH,
                     ),
                     MetadataFilter(
-                        key="text", value="bar", operator=FilterOperator.TEXT_MATCH
+                        key="text",
+                        value="bar",
+                        operator=FilterOperator.TEXT_MATCH,
                     ),
                 ],
                 condition=FilterCondition.AND,
