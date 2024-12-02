@@ -30,8 +30,8 @@ from llama_index.core.vector_stores.types import (
 from sqlalchemy import text
 from sqlalchemy.engine.row import RowMapping
 
-from llama_index_alloydb_pg import AlloyDBEngine
-from llama_index_alloydb_pg.vector_store import AlloyDBVectorStore, Column
+from llama_index_alloydb_pg import AlloyDBEngine, Column
+from llama_index_alloydb_pg.vector_store import AlloyDBVectorStore
 
 DEFAULT_TABLE = "test_table" + str(uuid.uuid4())
 DEFAULT_TABLE_CUSTOM_VS = "test_table" + str(uuid.uuid4())
