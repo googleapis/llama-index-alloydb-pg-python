@@ -104,9 +104,7 @@ class TestVectorStore:
         return get_env_var("DB_PASSWORD", "database name on AlloyDB instance")
 
     @pytest_asyncio.fixture(scope="class")
-    async def engine(
-        self, db_project, db_region, db_cluster, db_instance, db_name
-    ):
+    async def engine(self, db_project, db_region, db_cluster, db_instance, db_name):
         engine = await AlloyDBEngine.afrom_instance(
             project_id=db_project,
             instance=db_instance,
@@ -125,9 +123,7 @@ class TestVectorStore:
         await engine._ainit_vector_store_table(
             DEFAULT_TABLE, VECTOR_SIZE, overwrite_existing=True
         )
-        vs = await AsyncAlloyDBVectorStore.create(
-            engine, table_name=DEFAULT_TABLE
-        )
+        vs = await AsyncAlloyDBVectorStore.create(engine, table_name=DEFAULT_TABLE)
         yield vs
 
     @pytest_asyncio.fixture(scope="class")
@@ -272,9 +268,7 @@ class TestVectorStore:
 
         await custom_vs.async_add(nodes)
 
-        results = await afetch(
-            engine, f'SELECT * FROM "{DEFAULT_TABLE_CUSTOM_VS}"'
-        )
+        results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE_CUSTOM_VS}"')
         assert len(results) == 3
         assert results[0]["len"] == 3
         assert results[0]["nullable_int_field"] == None
@@ -304,9 +298,7 @@ class TestVectorStore:
                         value="foo",
                         operator=FilterOperator.TEXT_MATCH,
                     ),
-                    MetadataFilter(
-                        key="text", value="bar", operator=FilterOperator.EQ
-                    ),
+                    MetadataFilter(key="text", value="bar", operator=FilterOperator.EQ),
                 ],
                 condition=FilterCondition.OR,
             ),
@@ -339,9 +331,7 @@ class TestVectorStore:
         )
 
         assert len(results) == 1
-        assert (
-            results[0].get_content(metadata_mode=MetadataMode.NONE) == "foobar"
-        )
+        assert results[0].get_content(metadata_mode=MetadataMode.NONE) == "foobar"
 
     async def test_aquery(self, engine, vs):
         # Note: To be migrated to a pytest dependency on test_async_add
@@ -357,10 +347,7 @@ class TestVectorStore:
         assert results.ids is not None
         assert results.similarities is not None
         assert len(results.nodes) == 3
-        assert (
-            results.nodes[0].get_content(metadata_mode=MetadataMode.NONE)
-            == "foo"
-        )
+        assert results.nodes[0].get_content(metadata_mode=MetadataMode.NONE) == "foo"
 
     async def test_aclear(self, engine, vs):
         # Note: To be migrated to a pytest dependency on test_adelete
