@@ -216,7 +216,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             else ""
         )
         metadata_col_values = (
-            ", " + ", :".join(self._metadata_columns)
+            ", :" + ", :".join(self._metadata_columns)
             if len(self._metadata_columns) > 0
             else ""
         )
