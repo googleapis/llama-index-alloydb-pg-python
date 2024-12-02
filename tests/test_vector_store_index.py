@@ -255,10 +255,10 @@ class TestAsyncIndex:
         await omni_engine.close()
 
     @pytest_asyncio.fixture(scope="class")
-    async def omni_vs(self, omni_engine):
-        await omni_engine.ainit_vector_store_table(DEFAULT_TABLE_OMNI, VECTOR_SIZE)
+    async def omni_vs(self, engine):
+        await engine.ainit_vector_store_table(DEFAULT_TABLE_OMNI, VECTOR_SIZE)
         vs = await AlloyDBVectorStore.create(
-            omni_engine,
+            engine,
             table_name=DEFAULT_TABLE_OMNI,
         )
         await vs.async_add(nodes)
