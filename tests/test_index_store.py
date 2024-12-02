@@ -23,7 +23,6 @@ from llama_index.core.data_structs.data_structs import IndexDict, IndexGraph, In
 from sqlalchemy import RowMapping, text
 
 from llama_index_alloydb_pg import AlloyDBEngine, AlloyDBIndexStore
-from llama_index_alloydb_pg.async_index_store import AsyncAlloyDBIndexStore
 
 default_table_name_async = "document_store_" + str(uuid.uuid4())
 default_table_name_sync = "document_store_" + str(uuid.uuid4())
@@ -125,9 +124,7 @@ class TestAlloyDBIndexStoreAsync:
 
     async def test_init_with_constructor(self, async_engine):
         with pytest.raises(Exception):
-            AsyncAlloyDBIndexStore(
-                engine=async_engine, table_name=default_table_name_async
-            )
+            AlloyDBIndexStore(engine=async_engine, table_name=default_table_name_async)
 
     async def test_add_and_delete_index(self, index_store, async_engine):
         index_struct = IndexGraph()
@@ -252,9 +249,7 @@ class TestAlloyDBIndexStoreSync:
 
     async def test_init_with_constructor(self, async_engine):
         with pytest.raises(Exception):
-            AsyncAlloyDBIndexStore(
-                engine=async_engine, table_name=default_table_name_sync
-            )
+            AlloyDBIndexStore(engine=async_engine, table_name=default_table_name_sync)
 
     async def test_add_and_delete_index(self, index_store, async_engine):
         index_struct = IndexGraph()

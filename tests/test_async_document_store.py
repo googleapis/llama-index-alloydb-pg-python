@@ -14,6 +14,7 @@
 
 import os
 import uuid
+import warnings
 from typing import Sequence
 
 import pytest
@@ -26,6 +27,7 @@ from llama_index_alloydb_pg import AlloyDBEngine
 from llama_index_alloydb_pg.async_document_store import AsyncAlloyDBDocumentStore
 
 default_table_name_async = "document_store_" + str(uuid.uuid4())
+custom_table_name = "document_store_" + str(uuid.uuid4())
 
 
 async def aexecute(engine: AlloyDBEngine, query: str) -> None:
@@ -108,10 +110,38 @@ class TestAsyncAlloyDBDocumentStore:
         query = f'DROP TABLE IF EXISTS "{default_table_name_async}"'
         await aexecute(async_engine, query)
 
+    @pytest_asyncio.fixture(scope="class")
+    async def custom_doc_store(self, async_engine):
+        await async_engine._ainit_doc_store_table(table_name=custom_table_name)
+
+        custom_doc_store = await AsyncAlloyDBDocumentStore.create(
+            engine=async_engine, table_name=custom_table_name, batch_size=0
+        )
+
+        yield custom_doc_store
+
+        query = f'DROP TABLE IF EXISTS "{custom_table_name}"'
+        await aexecute(async_engine, query)
+
     async def test_init_with_constructor(self, async_engine):
         with pytest.raises(Exception):
             AsyncAlloyDBDocumentStore(
                 engine=async_engine, table_name=default_table_name_async
+            )
+
+    async def test_warning(self, custom_doc_store):
+        # Create and add documents into the docstore with batch size set to 0.
+        document_text = "warning test doc"
+        doc = Document(
+            text=document_text, id_="warning_test_doc", metadata={"doc": "info"}
+        )
+
+        with warnings.catch_warnings(record=True) as w:
+            await custom_doc_store.async_add_documents([doc], batch_size=0)
+
+            assert len(w) == 1
+            assert "Provided batch size less than 1. Defaulting to 1." in str(
+                w[-1].message
             )
 
     async def test_adocs(self, doc_store):
