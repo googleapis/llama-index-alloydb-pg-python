@@ -269,7 +269,7 @@ class TestVectorStore:
         await custom_vs.async_add(nodes)
 
         results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE_CUSTOM_VS}"')
-        assert len(results) == 3
+        assert len(results) == 4
         assert results[0]["len"] == 3
         assert results[0]["nullable_int_field"] == None
         assert results[0]["nullable_str_field"] == None
