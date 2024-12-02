@@ -336,9 +336,9 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             )
             if row[self._ref_doc_id_column]:
                 node_source = TextNode(id_=row[self._ref_doc_id_column])
-                node.relationships[NodeRelationship.SOURCE] = (
-                    node_source.as_related_node_info()
-                )
+                node.relationships[
+                    NodeRelationship.SOURCE
+                ] = node_source.as_related_node_info()
             nodes.append(node)
             ids.append(row[self._id_column])
             if "distance" in row:
