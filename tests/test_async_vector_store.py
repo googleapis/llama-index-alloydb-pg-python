@@ -157,37 +157,6 @@ class TestVectorStore:
         )
         yield vs
 
-    @pytest_asyncio.fixture(scope="class")
-    async def custom_vs(self, engine):
-        await engine._ainit_vector_store_table(
-            DEFAULT_TABLE_CUSTOM_VS,
-            VECTOR_SIZE,
-            overwrite_existing=True,
-            metadata_columns=[
-                Column(name="len", data_type="INTEGER", nullable=False),
-                Column(
-                    name="nullable_int_field",
-                    data_type="INTEGER",
-                    nullable=True,
-                ),
-                Column(
-                    name="nullable_str_field",
-                    data_type="VARCHAR",
-                    nullable=True,
-                ),
-            ],
-        )
-        vs = await AsyncAlloyDBVectorStore.create(
-            engine,
-            table_name=DEFAULT_TABLE_CUSTOM_VS,
-            metadata_columns=[
-                "len",
-                "nullable_int_field",
-                "nullable_str_field",
-            ],
-        )
-        yield vs
-
     async def test_init_with_constructor(self, engine):
         with pytest.raises(Exception):
             AsyncAlloyDBVectorStore(engine, table_name=DEFAULT_TABLE)
