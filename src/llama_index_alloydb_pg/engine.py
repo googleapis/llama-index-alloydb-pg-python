@@ -796,10 +796,13 @@ class AlloyDBEngine:
         create_table_query = f"""CREATE TABLE "{schema_name}"."{table_name}"(
             id SERIAL PRIMARY KEY,
             key VARCHAR NOT NULL,
-            messages JSON[] NOT NULL
+            messages JSON[] NOT NULL,
+            CONSTRAINT "{table_name}_unique_key" UNIQUE (key)
         );"""
+        create_index_query = f"""CREATE INDEX "{table_name}_idx_key" ON "{schema_name}"."{table_name}" (key);"""
         async with self._pool.connect() as conn:
             await conn.execute(text(create_table_query))
+            await conn.execute(text(create_index_query))
             await conn.commit()
 
     async def ainit_chat_store_table(
