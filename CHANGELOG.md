@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/googleapis/llama-index-alloydb-pg-python/compare/v0.1.0...v0.1.1) (2024-12-06)
+
+
+### Bug Fixes
+
+* **deps:** Update python-nonmajor ([#26](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/26)) ([31f567b](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/31f567b8400649d77b2534924e2db8aa9f34e7e3))
+
 ## 0.1.0 (2024-12-03)
 
 
