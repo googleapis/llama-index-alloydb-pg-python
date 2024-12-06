@@ -204,23 +204,21 @@ class TestIndexSync:
         is_valid = vs.is_valid_index("invalid_index")
         assert is_valid == False
 
-    # TODO: scann throws issues with alloy db
-    # Uncomment after fixing
-    # async def test_aapply_vector_index_scann(self, vs):
-    #     index = ScaNNIndex(distance_strategy=DistanceStrategy.EUCLIDEAN)
-    #     await vs.aset_maintenance_work_mem(index.num_leaves, VECTOR_SIZE)
-    #     await vs.aapply_vector_index(index, concurrently=True)
-    #     assert await vs.ais_valid_index(DEFAULT_INDEX_NAME)
-    #     index = ScaNNIndex(
-    #         name="secondindex",
-    #         distance_strategy=DistanceStrategy.COSINE_DISTANCE,
-    #     )
-    #     await vs.aapply_vector_index(index)
-    #     assert await vs.ais_valid_index("secondindex")
-    #     await vs.adrop_vector_index("secondindex")
-    #     await vs.adrop_vector_index()
+    async def test_aapply_vector_index_scann(self, vs):
+        index = ScaNNIndex(distance_strategy=DistanceStrategy.EUCLIDEAN)
+        await vs.aset_maintenance_work_mem(index.num_leaves, VECTOR_SIZE)
+        await vs.aapply_vector_index(index, concurrently=True)
+        assert await vs.ais_valid_index(DEFAULT_INDEX_NAME)
+        index = ScaNNIndex(
+            name="secondindex",
+            distance_strategy=DistanceStrategy.COSINE_DISTANCE,
+        )
+        await vs.aapply_vector_index(index)
+        assert await vs.ais_valid_index("secondindex")
+        await vs.adrop_vector_index("secondindex")
+        await vs.adrop_vector_index()
 
-    async def test_apply_vector_index_scann(self, omni_vs):
+    async def test_apply_vector_index_scann_omni(self, omni_vs):
         index = ScaNNIndex(distance_strategy=DistanceStrategy.EUCLIDEAN)
         omni_vs.set_maintenance_work_mem(index.num_leaves, VECTOR_SIZE)
         omni_vs.apply_vector_index(index, concurrently=True)
@@ -380,7 +378,7 @@ class TestAsyncIndex:
         await vs.adrop_vector_index("secondindex")
         await vs.adrop_vector_index()
 
-    async def test_aapply_vector_index_scann(self, omni_vs):
+    async def test_aapply_vector_index_scann_omni(self, omni_vs):
         index = ScaNNIndex(distance_strategy=DistanceStrategy.EUCLIDEAN)
         await omni_vs.aset_maintenance_work_mem(index.num_leaves, VECTOR_SIZE)
         await omni_vs.aapply_vector_index(index, concurrently=True)
@@ -394,18 +392,16 @@ class TestAsyncIndex:
         await omni_vs.adrop_vector_index("secondindex")
         await omni_vs.adrop_vector_index()
 
-    # TODO: scann throws issues with alloy db
-    # Uncomment after fixing
-    # async def test_apply_vector_index_scann(self, vs):
-    #     index = ScaNNIndex(distance_strategy=DistanceStrategy.EUCLIDEAN)
-    #     vs.set_maintenance_work_mem(index.num_leaves, VECTOR_SIZE)
-    #     vs.apply_vector_index(index, concurrently=True)
-    #     assert vs.is_valid_index(DEFAULT_INDEX_NAME_ASYNC)
-    #     index = ScaNNIndex(
-    #         name="secondindex",
-    #         distance_strategy=DistanceStrategy.COSINE_DISTANCE,
-    #     )
-    #     vs.apply_vector_index(index)
-    #     assert vs.is_valid_index("secondindex")
-    #     vs.drop_vector_index("secondindex")
-    #     vs.drop_vector_index()
+    async def test_apply_vector_index_scann(self, vs):
+        index = ScaNNIndex(distance_strategy=DistanceStrategy.EUCLIDEAN)
+        vs.set_maintenance_work_mem(index.num_leaves, VECTOR_SIZE)
+        vs.apply_vector_index(index, concurrently=True)
+        assert vs.is_valid_index(DEFAULT_INDEX_NAME_ASYNC)
+        index = ScaNNIndex(
+            name="secondindex",
+            distance_strategy=DistanceStrategy.COSINE_DISTANCE,
+        )
+        vs.apply_vector_index(index)
+        assert vs.is_valid_index("secondindex")
+        vs.drop_vector_index("secondindex")
+        vs.drop_vector_index()
