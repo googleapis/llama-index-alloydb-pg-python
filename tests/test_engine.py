@@ -321,7 +321,7 @@ class TestEngineAsync:
         expected = [
             {"column_name": "id", "data_type": "integer"},
             {"column_name": "key", "data_type": "character varying"},
-            {"column_name": "message", "data_type": "JSON"},
+            {"column_name": "message", "data_type": "json"},
         ]
         for row in results:
             assert row in expected
@@ -513,7 +513,7 @@ class TestEngineSync:
         expected = [
             {"column_name": "id", "data_type": "integer"},
             {"column_name": "key", "data_type": "character varying"},
-            {"column_name": "message", "data_type": "JSON"},
+            {"column_name": "message", "data_type": "json"},
         ]
         for row in results:
             assert row in expected
