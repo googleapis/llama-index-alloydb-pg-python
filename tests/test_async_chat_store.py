@@ -21,8 +21,8 @@ from typing import Sequence
 import pytest
 import pytest_asyncio
 from llama_index.core.data_structs.data_structs import IndexDict, IndexGraph, IndexList
-from sqlalchemy import RowMapping, text
 from llama_index.core.llms import ChatMessage
+from sqlalchemy import RowMapping, text
 
 from llama_index_alloydb_pg import AlloyDBEngine
 from llama_index_alloydb_pg.async_chat_store import AsyncAlloyDBChatStore
@@ -83,7 +83,12 @@ class TestAsyncAlloyDBChatStore:
 
     @pytest_asyncio.fixture(scope="class")
     async def async_engine(
-        self, db_project, db_region, db_cluster, db_instance, db_name,
+        self,
+        db_project,
+        db_region,
+        db_cluster,
+        db_instance,
+        db_name,
     ):
         async_engine = await AlloyDBEngine.afrom_instance(
             project_id=db_project,

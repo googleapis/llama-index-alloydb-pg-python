@@ -137,10 +137,9 @@ class AsyncAlloyDBChatStore(BaseChatStore):
         query = f"""SELECT message from "{self._schema_name}"."{self._table_name}" WHERE key = '{key}' ORDER BY id;"""
         results = await self.__afetch_query(query)
         if results:
-                return [
-                    ChatMessage.model_validate(result.get("message"))
-                    for result in results
-                ]
+            return [
+                ChatMessage.model_validate(result.get("message")) for result in results
+            ]
         return []
 
     async def async_add_message(self, key: str, message: ChatMessage) -> None:
@@ -155,10 +154,9 @@ class AsyncAlloyDBChatStore(BaseChatStore):
         query = f"""DELETE FROM "{self._schema_name}"."{self._table_name}" WHERE key = '{key}' RETURNING *; """
         results = await self.__afetch_query(query)
         if results:
-                return [
-                    ChatMessage.model_validate(result.get("message"))
-                    for result in results
-                ]
+            return [
+                ChatMessage.model_validate(result.get("message")) for result in results
+            ]
         return None
 
     async def adelete_message(self, key: str, idx: int) -> Optional[ChatMessage]:
@@ -172,7 +170,7 @@ class AsyncAlloyDBChatStore(BaseChatStore):
             result = await self.__afetch_query(delete_query)
             result = result[0]
             if result:
-                    return ChatMessage.model_validate(result.get("message"))
+                return ChatMessage.model_validate(result.get("message"))
             return None
         return None
 
@@ -185,19 +183,20 @@ class AsyncAlloyDBChatStore(BaseChatStore):
             result = await self.__afetch_query(delete_query)
             result = result[0]
             if result:
-                    return ChatMessage.model_validate(result.get("message"))
+                return ChatMessage.model_validate(result.get("message"))
             return None
         return None
 
     async def aget_keys(self) -> List[str]:
-        query = f"""SELECT distinct key from "{self._schema_name}"."{self._table_name}";"""
+        query = (
+            f"""SELECT distinct key from "{self._schema_name}"."{self._table_name}";"""
+        )
         results = await self.__afetch_query(query)
         keys = []
         if results:
-          for row in results:
-              keys.append(row.get("key"))
+            for row in results:
+                keys.append(row.get("key"))
         return keys
-
 
     def set_messages(self, key: str, messages: List[ChatMessage]) -> None:
         raise NotImplementedError(
