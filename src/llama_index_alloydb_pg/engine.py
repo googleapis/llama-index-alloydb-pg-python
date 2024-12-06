@@ -796,8 +796,7 @@ class AlloyDBEngine:
         create_table_query = f"""CREATE TABLE "{schema_name}"."{table_name}"(
             id SERIAL PRIMARY KEY,
             key VARCHAR NOT NULL,
-            message JSON NOT NULL,
-            CONSTRAINT "{table_name}_unique_key" UNIQUE (key)
+            message JSON NOT NULL
         );"""
         create_index_query = f"""CREATE INDEX "{table_name}_idx_key" ON "{schema_name}"."{table_name}" (key);"""
         async with self._pool.connect() as conn:
