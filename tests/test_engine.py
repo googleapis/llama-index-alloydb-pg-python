@@ -14,7 +14,7 @@
 
 import os
 import uuid
-from typing import Dict, Sequence
+from typing import Sequence
 
 import asyncpg  # type: ignore
 import pytest
