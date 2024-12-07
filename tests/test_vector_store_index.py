@@ -174,6 +174,7 @@ class TestIndexSync:
         index = HNSWIndex()
         vs.apply_vector_index(index)
         assert vs.is_valid_index(DEFAULT_INDEX_NAME)
+        vs.drop_vector_index(DEFAULT_INDEX_NAME)
 
     async def test_areindex(self, vs):
         if not vs.is_valid_index(DEFAULT_INDEX_NAME):
@@ -182,6 +183,7 @@ class TestIndexSync:
         vs.reindex()
         vs.reindex(DEFAULT_INDEX_NAME)
         assert vs.is_valid_index(DEFAULT_INDEX_NAME)
+        vs.drop_vector_index(DEFAULT_INDEX_NAME)
 
     async def test_dropindex(self, vs):
         vs.drop_vector_index()
@@ -199,6 +201,7 @@ class TestIndexSync:
         vs.apply_vector_index(index)
         assert vs.is_valid_index("secondindex")
         vs.drop_vector_index("secondindex")
+        vs.drop_vector_index(DEFAULT_INDEX_NAME)
 
     async def test_is_valid_index(self, vs):
         is_valid = vs.is_valid_index("invalid_index")
@@ -334,6 +337,7 @@ class TestAsyncIndex:
         index = HNSWIndex()
         await vs.aapply_vector_index(index)
         assert await vs.ais_valid_index(DEFAULT_INDEX_NAME_ASYNC)
+        await vs.adrop_vector_index(DEFAULT_INDEX_NAME_ASYNC)
 
     async def test_areindex(self, vs):
         if not await vs.ais_valid_index(DEFAULT_INDEX_NAME_ASYNC):
@@ -342,6 +346,7 @@ class TestAsyncIndex:
         await vs.areindex()
         await vs.areindex(DEFAULT_INDEX_NAME_ASYNC)
         assert await vs.ais_valid_index(DEFAULT_INDEX_NAME_ASYNC)
+        await vs.adrop_vector_index(DEFAULT_INDEX_NAME_ASYNC)
 
     async def test_dropindex(self, vs):
         await vs.adrop_vector_index()
