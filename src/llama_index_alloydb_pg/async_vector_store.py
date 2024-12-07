@@ -15,14 +15,10 @@
 # TODO: Remove below import when minimum supported Python version is 3.10
 from __future__ import annotations
 
-import base64
 import json
-import re
-import uuid
 import warnings
-from typing import Any, Callable, Iterable, List, Optional, Sequence, Tuple, Type
+from typing import Any, Optional, Sequence
 
-import numpy as np
 from llama_index.core.schema import BaseNode, MetadataMode, NodeRelationship, TextNode
 from llama_index.core.vector_stores.types import (
     BasePydanticVectorStore,
@@ -31,7 +27,6 @@ from llama_index.core.vector_stores.types import (
     MetadataFilter,
     MetadataFilters,
     VectorStoreQuery,
-    VectorStoreQueryMode,
     VectorStoreQueryResult,
 )
 from llama_index.core.vector_stores.utils import (
@@ -71,7 +66,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         text_column: str = "text",
         embedding_column: str = "embedding",
         metadata_json_column: str = "li_metadata",
-        metadata_columns: List[str] = [],
+        metadata_columns: list[str] = [],
         ref_doc_id_column: str = "ref_doc_id",
         node_column: str = "node_data",
         stores_text: bool = True,
@@ -89,7 +84,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             text_column (str): Column that represent text content of a Node. Defaults to "text".
             embedding_column (str): Column for embedding vectors. The embedding is generated from the content of Node. Defaults to "embedding".
             metadata_json_column (str): Column to store metadata as JSON. Defaults to "li_metadata".
-            metadata_columns (List[str]): Column(s) that represent extracted metadata keys in their own columns.
+            metadata_columns (list[str]): Column(s) that represent extracted metadata keys in their own columns.
             ref_doc_id_column (str): Column that represents id of a node's parent document. Defaults to "ref_doc_id".
             node_column (str): Column that represents the whole JSON node. Defaults to "node_data".
             stores_text (bool): Whether the table stores text. Defaults to "True".
@@ -121,7 +116,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
 
     @classmethod
     async def create(
-        cls: Type[AsyncAlloyDBVectorStore],
+        cls: type[AsyncAlloyDBVectorStore],
         engine: AlloyDBEngine,
         table_name: str,
         schema_name: str = "public",
@@ -129,7 +124,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         text_column: str = "text",
         embedding_column: str = "embedding",
         metadata_json_column: str = "li_metadata",
-        metadata_columns: List[str] = [],
+        metadata_columns: list[str] = [],
         ref_doc_id_column: str = "ref_doc_id",
         node_column: str = "node_data",
         stores_text: bool = True,
@@ -147,7 +142,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             text_column (str): Column that represent text content of a Node. Defaults to "text".
             embedding_column (str): Column for embedding vectors. The embedding is generated from the content of Node. Defaults to "embedding".
             metadata_json_column (str): Column to store metadata as JSON. Defaults to "li_metadata".
-            metadata_columns (List[str]): Column(s) that represent extracted metadata keys in their own columns.
+            metadata_columns (list[str]): Column(s) that represent extracted metadata keys in their own columns.
             ref_doc_id_column (str): Column that represents id of a node's parent document. Defaults to "ref_doc_id".
             node_column (str): Column that represents the whole JSON node. Defaults to "node_data".
             stores_text (bool): Whether the table stores text. Defaults to "True".
@@ -234,7 +229,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         """Get client."""
         return self._engine
 
-    async def async_add(self, nodes: Sequence[BaseNode], **kwargs: Any) -> List[str]:
+    async def async_add(self, nodes: Sequence[BaseNode], **kwargs: Any) -> list[str]:
         """Asynchronously add nodes to the table."""
         ids = []
         metadata_col_names = (
@@ -293,14 +288,14 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
 
     async def adelete_nodes(
         self,
-        node_ids: Optional[List[str]] = None,
+        node_ids: Optional[list[str]] = None,
         filters: Optional[MetadataFilters] = None,
         **delete_kwargs: Any,
     ) -> None:
         """Asynchronously delete a set of nodes from the table matching the provided nodes and filters."""
         if not node_ids and not filters:
             return
-        all_filters: List[MetadataFilter | MetadataFilters] = []
+        all_filters: list[MetadataFilter | MetadataFilters] = []
         if node_ids:
             all_filters.append(
                 MetadataFilter(
@@ -332,9 +327,9 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
 
     async def aget_nodes(
         self,
-        node_ids: Optional[List[str]] = None,
+        node_ids: Optional[list[str]] = None,
         filters: Optional[MetadataFilters] = None,
-    ) -> List[BaseNode]:
+    ) -> list[BaseNode]:
         """Asynchronously get nodes from the table matching the provided nodes and filters."""
         query = VectorStoreQuery(
             node_ids=node_ids, filters=filters, similarity_top_k=-1
@@ -366,7 +361,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
                 similarities.append(row["distance"])
         return VectorStoreQueryResult(nodes=nodes, similarities=similarities, ids=ids)
 
-    def add(self, nodes: Sequence[BaseNode], **add_kwargs: Any) -> List[str]:
+    def add(self, nodes: Sequence[BaseNode], **add_kwargs: Any) -> list[str]:
         raise NotImplementedError(
             "Sync methods are not implemented for AsyncAlloyDBVectorStore. Use AlloyDBVectorStore interface instead."
         )
@@ -378,7 +373,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
 
     def delete_nodes(
         self,
-        node_ids: Optional[List[str]] = None,
+        node_ids: Optional[list[str]] = None,
         filters: Optional[MetadataFilters] = None,
         **delete_kwargs: Any,
     ) -> None:
@@ -393,9 +388,9 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
 
     def get_nodes(
         self,
-        node_ids: Optional[List[str]] = None,
+        node_ids: Optional[list[str]] = None,
         filters: Optional[MetadataFilters] = None,
-    ) -> List[BaseNode]:
+    ) -> list[BaseNode]:
         raise NotImplementedError(
             "Sync methods are not implemented for AsyncAlloyDBVectorStore. Use AlloyDBVectorStore interface instead."
         )
@@ -495,7 +490,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         **kwargs: Any,
     ) -> Sequence[RowMapping]:
         """Perform search query on database."""
-        filters: List[MetadataFilter | MetadataFilters] = []
+        filters: list[MetadataFilter | MetadataFilters] = []
         if query.doc_ids:
             filters.append(
                 MetadataFilter(
