@@ -118,6 +118,16 @@ class AsyncAlloyDBChatStore(BaseChatStore):
         return "AsyncAlloyDBChatStore"
 
     async def aset_messages(self, key: str, messages: List[ChatMessage]) -> None:
+        """Asynchronously sets the chat messages for a specific key.
+
+        Args:
+            key (str): A unique identifier for the chat.
+            messages (List[ChatMessage]): A list of `ChatMessage` objects to upsert.
+
+        Returns:
+            None
+
+        """
         query = f"""DELETE FROM "{self._schema_name}"."{self._table_name}" WHERE key = '{key}'; """
         await self.__aexecute_query(query)
         insert_query = f"""
@@ -134,6 +144,15 @@ class AsyncAlloyDBChatStore(BaseChatStore):
         await self.__aexecute_query(insert_query, params)
 
     async def aget_messages(self, key: str) -> List[ChatMessage]:
+        """Asynchronously retrieves the chat messages associated with a specific key.
+
+        Args:
+            key (str): A unique identifier for which the messages are to be retrieved.
+
+        Returns:
+            List[ChatMessage]: A list of `ChatMessage` objects associated with the provided key.
+            If no messages are found, an empty list is returned.
+        """
         query = f"""SELECT message from "{self._schema_name}"."{self._table_name}" WHERE key = '{key}' ORDER BY id;"""
         results = await self.__afetch_query(query)
         if results:
@@ -143,6 +162,15 @@ class AsyncAlloyDBChatStore(BaseChatStore):
         return []
 
     async def async_add_message(self, key: str, message: ChatMessage) -> None:
+        """Asynchronously adds a new chat message to the specified key.
+
+        Args:
+            key (str): A unique identifierfor the chat to which the message is added.
+            message (ChatMessage): The `ChatMessage` object that is to be added.
+
+        Returns:
+            None
+        """
         insert_query = f"""
                 INSERT INTO "{self._schema_name}"."{self._table_name}" (key, message)
                 VALUES (:key, :message);"""
@@ -151,6 +179,15 @@ class AsyncAlloyDBChatStore(BaseChatStore):
         await self.__aexecute_query(insert_query, params)
 
     async def adelete_messages(self, key: str) -> Optional[List[ChatMessage]]:
+        """Asynchronously deletes the chat messages associated with a specific key.
+
+        Args:
+            key (str): A unique identifier for the chat whose messages are to be deleted.
+
+        Returns:
+            Optional[List[ChatMessage]]: A list of `ChatMessage` objects that were deleted, or `None` if no messages
+            were associated with the key or could be deleted.
+        """
         query = f"""DELETE FROM "{self._schema_name}"."{self._table_name}" WHERE key = '{key}' RETURNING *; """
         results = await self.__afetch_query(query)
         if results:
@@ -160,6 +197,16 @@ class AsyncAlloyDBChatStore(BaseChatStore):
         return None
 
     async def adelete_message(self, key: str, idx: int) -> Optional[ChatMessage]:
+        """Asynchronously deletes a specific chat message by index from the messages associated with a given key.
+
+        Args:
+            key (str): A unique identifier for the chat whose messages are to be deleted.
+            idx (int): The index of the `ChatMessage` to be deleted from the list of messages.
+
+        Returns:
+            Optional[ChatMessage]: The `ChatMessage` object that was deleted, or `None` if no message
+            was associated with the key or could be deleted.
+        """
         query = f"""SELECT * from "{self._schema_name}"."{self._table_name}" WHERE key = '{key}' ORDER BY id;"""
         results = await self.__afetch_query(query)
         if results:
@@ -175,6 +222,15 @@ class AsyncAlloyDBChatStore(BaseChatStore):
         return None
 
     async def adelete_last_message(self, key: str) -> Optional[ChatMessage]:
+        """Asynchronously deletes the last chat message associated with a given key.
+
+        Args:
+            key (str): A unique identifier for the chat whose message is to be deleted.
+
+        Returns:
+            Optional[ChatMessage]: The `ChatMessage` object that was deleted, or `None` if no message
+            was associated with the key or could be deleted.
+        """
         query = f"""SELECT * from "{self._schema_name}"."{self._table_name}" WHERE key = '{key}' ORDER BY id;"""
         results = await self.__afetch_query(query)
         if results:
@@ -188,6 +244,11 @@ class AsyncAlloyDBChatStore(BaseChatStore):
         return None
 
     async def aget_keys(self) -> List[str]:
+        """Asynchronously retrieves a list of all keys.
+
+        Returns:
+            Optional[str]: A list of strings representing the keys. If no keys are found, an empty list is returned.
+        """
         query = (
             f"""SELECT distinct key from "{self._schema_name}"."{self._table_name}";"""
         )
