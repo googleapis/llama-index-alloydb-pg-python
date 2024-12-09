@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .chat_store import AlloyDBChatStore
 from .document_store import AlloyDBDocumentStore
 from .engine import AlloyDBEngine, Column
 from .index_store import AlloyDBIndexStore
@@ -19,6 +20,7 @@ from .vector_store import AlloyDBVectorStore
 from .version import __version__
 
 _all = [
+    "AlloyDBChatStore",
     "AlloyDBDocumentStore",
     "AlloyDBEngine",
     "AlloyDBIndexStore",
