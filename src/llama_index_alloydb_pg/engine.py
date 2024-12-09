@@ -17,17 +17,7 @@ import asyncio
 from concurrent.futures import Future
 from dataclasses import dataclass
 from threading import Thread
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Awaitable,
-    Dict,
-    List,
-    Optional,
-    Type,
-    TypeVar,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Awaitable, Optional, TypeVar, Union
 
 import aiohttp
 import google.auth  # type: ignore
@@ -76,7 +66,7 @@ async def _get_iam_principal_email(
     url = f"https://oauth2.googleapis.com/tokeninfo?access_token={credentials.token}"
     async with aiohttp.ClientSession() as client:
         response = await client.get(url, raise_for_status=True)
-        response_json: Dict = await response.json()
+        response_json: dict = await response.json()
         email = response_json.get("email")
     if email is None:
         raise ValueError(
@@ -179,7 +169,7 @@ class AlloyDBEngine:
 
     @classmethod
     def from_instance(
-        cls: Type[AlloyDBEngine],
+        cls: type[AlloyDBEngine],
         project_id: str,
         region: str,
         cluster: str,
@@ -221,7 +211,7 @@ class AlloyDBEngine:
 
     @classmethod
     async def _create(
-        cls: Type[AlloyDBEngine],
+        cls: type[AlloyDBEngine],
         project_id: str,
         region: str,
         cluster: str,
@@ -305,7 +295,7 @@ class AlloyDBEngine:
 
     @classmethod
     async def afrom_instance(
-        cls: Type[AlloyDBEngine],
+        cls: type[AlloyDBEngine],
         project_id: str,
         region: str,
         cluster: str,
@@ -347,7 +337,7 @@ class AlloyDBEngine:
 
     @classmethod
     def from_engine(
-        cls: Type[AlloyDBEngine],
+        cls: type[AlloyDBEngine],
         engine: AsyncEngine,
         loop: Optional[asyncio.AbstractEventLoop] = None,
     ) -> AlloyDBEngine:
@@ -512,7 +502,7 @@ class AlloyDBEngine:
         text_column: str = "text",
         embedding_column: str = "embedding",
         metadata_json_column: str = "li_metadata",
-        metadata_columns: List[Column] = [],
+        metadata_columns: list[Column] = [],
         ref_doc_id_column: str = "ref_doc_id",
         node_column: str = "node_data",
         stores_text: bool = True,
@@ -528,7 +518,7 @@ class AlloyDBEngine:
             text_column (str): Column that represent text content of a Node. Defaults to "text".
             embedding_column (str): Column for embedding vectors. The embedding is generated from the content of Node. Defaults to "embedding".
             metadata_json_column (str): Column to store metadata as JSON. Defaults to "li_metadata".
-            metadata_columns (List[str]): Column(s) that represent extracted metadata keys in their own columns.
+            metadata_columns (list[str]): Column(s) that represent extracted metadata keys in their own columns.
             ref_doc_id_column (str): Column that represents id of a node's parent document. Defaults to "ref_doc_id".
             node_column (str): Column that represents the whole JSON node. Defaults to "node_data".
             stores_text (bool): Whether the table stores text. Defaults to "True".
@@ -585,7 +575,7 @@ class AlloyDBEngine:
         text_column: str = "text",
         embedding_column: str = "embedding",
         metadata_json_column: str = "li_metadata",
-        metadata_columns: List[Column] = [],
+        metadata_columns: list[Column] = [],
         ref_doc_id_column: str = "ref_doc_id",
         node_column: str = "node_data",
         stores_text: bool = True,
@@ -601,7 +591,7 @@ class AlloyDBEngine:
             text_column (str): Column that represent text content of a Node. Defaults to "text".
             embedding_column (str): Column for embedding vectors. The embedding is generated from the content of Node. Defaults to "embedding".
             metadata_json_column (str): Column to store metadata as JSON. Defaults to "li_metadata".
-            metadata_columns (List[str]): Column(s) that represent extracted metadata keys in their own columns.
+            metadata_columns (list[str]): Column(s) that represent extracted metadata keys in their own columns.
             ref_doc_id_column (str): Column that represents id of a node's parent document. Defaults to "ref_doc_id".
             node_column (str): Column that represents the whole JSON node. Defaults to "node_data".
             stores_text (bool): Whether the table stores text. Defaults to "True".
@@ -636,7 +626,7 @@ class AlloyDBEngine:
         text_column: str = "text",
         embedding_column: str = "embedding",
         metadata_json_column: str = "li_metadata",
-        metadata_columns: List[Column] = [],
+        metadata_columns: list[Column] = [],
         ref_doc_id_column: str = "ref_doc_id",
         node_column: str = "node_data",
         stores_text: bool = True,
@@ -652,7 +642,7 @@ class AlloyDBEngine:
             text_column (str): Column that represent text content of a Node. Defaults to "text".
             embedding_column (str): Column for embedding vectors. The embedding is generated from the content of Node. Defaults to "embedding".
             metadata_json_column (str): Column to store metadata as JSON. Defaults to "li_metadata".
-            metadata_columns (List[str]): Column(s) that represent extracted metadata keys in their own columns.
+            metadata_columns (list[str]): Column(s) that represent extracted metadata keys in their own columns.
             ref_doc_id_column (str): Column that represents id of a node's parent document. Defaults to "ref_doc_id".
             node_column (str): Column that represents the whole JSON node. Defaults to "node_data".
             stores_text (bool): Whether the table stores text. Defaults to "True".
@@ -761,6 +751,97 @@ class AlloyDBEngine:
         """
         self._run_as_sync(
             self._ainit_index_store_table(
+                table_name,
+                schema_name,
+                overwrite_existing,
+            )
+        )
+
+    async def _ainit_chat_store_table(
+        self,
+        table_name: str,
+        schema_name: str = "public",
+        overwrite_existing: bool = False,
+    ) -> None:
+        """
+        Create an AlloyDB table to save chat store.
+
+        Args:
+            table_name (str): The table name to store chat history.
+            schema_name (str): The schema name to store the chat store table.
+                Default: "public".
+            overwrite_existing (bool): Whether to drop existing table.
+                Default: False.
+
+        Returns:
+            None
+        """
+        if overwrite_existing:
+            async with self._pool.connect() as conn:
+                await conn.execute(
+                    text(f'DROP TABLE IF EXISTS "{schema_name}"."{table_name}"')
+                )
+                await conn.commit()
+
+        create_table_query = f"""CREATE TABLE "{schema_name}"."{table_name}"(
+            id SERIAL PRIMARY KEY,
+            key VARCHAR NOT NULL,
+            message JSON NOT NULL
+        );"""
+        create_index_query = f"""CREATE INDEX "{table_name}_idx_key" ON "{schema_name}"."{table_name}" (key);"""
+        async with self._pool.connect() as conn:
+            await conn.execute(text(create_table_query))
+            await conn.execute(text(create_index_query))
+            await conn.commit()
+
+    async def ainit_chat_store_table(
+        self,
+        table_name: str,
+        schema_name: str = "public",
+        overwrite_existing: bool = False,
+    ) -> None:
+        """
+        Create an AlloyDB table to save chat store.
+
+        Args:
+            table_name (str): The table name to store chat store.
+            schema_name (str): The schema name to store the chat store table.
+                Default: "public".
+            overwrite_existing (bool): Whether to drop existing table.
+                Default: False.
+
+        Returns:
+            None
+        """
+        await self._run_as_async(
+            self._ainit_chat_store_table(
+                table_name,
+                schema_name,
+                overwrite_existing,
+            )
+        )
+
+    def init_chat_store_table(
+        self,
+        table_name: str,
+        schema_name: str = "public",
+        overwrite_existing: bool = False,
+    ) -> None:
+        """
+        Create an AlloyDB table to save chat store.
+
+        Args:
+            table_name (str): The table name to store chat store.
+            schema_name (str): The schema name to store the chat store table.
+                Default: "public".
+            overwrite_existing (bool): Whether to drop existing table.
+                Default: False.
+
+        Returns:
+            None
+        """
+        self._run_as_sync(
+            self._ainit_chat_store_table(
                 table_name,
                 schema_name,
                 overwrite_existing,

@@ -14,7 +14,7 @@
 
 import os
 import uuid
-from typing import Dict, Sequence
+from typing import Sequence
 
 import asyncpg  # type: ignore
 import pytest
@@ -34,6 +34,8 @@ DEFAULT_IS_TABLE = "index_store_" + str(uuid.uuid4())
 DEFAULT_IS_TABLE_SYNC = "index_store_" + str(uuid.uuid4())
 DEFAULT_VS_TABLE = "vector_store_" + str(uuid.uuid4())
 DEFAULT_VS_TABLE_SYNC = "vector_store_" + str(uuid.uuid4())
+DEFAULT_CS_TABLE = "chat_store_" + str(uuid.uuid4())
+DEFAULT_CS_TABLE_SYNC = "chat_store_" + str(uuid.uuid4())
 VECTOR_SIZE = 768
 
 
@@ -118,6 +120,7 @@ class TestEngineAsync:
         await aexecute(engine, f'DROP TABLE "{DEFAULT_DS_TABLE}"')
         await aexecute(engine, f'DROP TABLE "{DEFAULT_VS_TABLE}"')
         await aexecute(engine, f'DROP TABLE "{DEFAULT_IS_TABLE}"')
+        await aexecute(engine, f'DROP TABLE "{DEFAULT_CS_TABLE}"')
         await engine.close()
 
     async def test_password(
@@ -307,6 +310,22 @@ class TestEngineAsync:
         for row in results:
             assert row in expected
 
+    async def test_init_chat_store(self, engine):
+        await engine.ainit_chat_store_table(
+            table_name=DEFAULT_CS_TABLE,
+            schema_name="public",
+            overwrite_existing=True,
+        )
+        stmt = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{DEFAULT_CS_TABLE}';"
+        results = await afetch(engine, stmt)
+        expected = [
+            {"column_name": "id", "data_type": "integer"},
+            {"column_name": "key", "data_type": "character varying"},
+            {"column_name": "message", "data_type": "json"},
+        ]
+        for row in results:
+            assert row in expected
+
 
 @pytest.mark.asyncio
 class TestEngineSync:
@@ -359,6 +378,7 @@ class TestEngineSync:
         await aexecute(engine, f'DROP TABLE "{DEFAULT_DS_TABLE_SYNC}"')
         await aexecute(engine, f'DROP TABLE "{DEFAULT_IS_TABLE_SYNC}"')
         await aexecute(engine, f'DROP TABLE "{DEFAULT_VS_TABLE_SYNC}"')
+        await aexecute(engine, f'DROP TABLE "{DEFAULT_CS_TABLE_SYNC}"')
         await engine.close()
 
     async def test_password(
@@ -478,6 +498,22 @@ class TestEngineSync:
             {"column_name": "index_id", "data_type": "character varying"},
             {"column_name": "type", "data_type": "character varying"},
             {"column_name": "index_data", "data_type": "jsonb"},
+        ]
+        for row in results:
+            assert row in expected
+
+    async def test_init_chat_store(self, engine):
+        engine.init_chat_store_table(
+            table_name=DEFAULT_CS_TABLE_SYNC,
+            schema_name="public",
+            overwrite_existing=True,
+        )
+        stmt = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{DEFAULT_CS_TABLE_SYNC}';"
+        results = await afetch(engine, stmt)
+        expected = [
+            {"column_name": "id", "data_type": "integer"},
+            {"column_name": "key", "data_type": "character varying"},
+            {"column_name": "message", "data_type": "json"},
         ]
         for row in results:
             assert row in expected
