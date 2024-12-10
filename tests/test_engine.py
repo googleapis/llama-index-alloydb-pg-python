@@ -123,6 +123,37 @@ class TestEngineAsync:
         await aexecute(engine, f'DROP TABLE "{DEFAULT_CS_TABLE}"')
         await engine.close()
 
+    async def test_init_with_constructor(
+        self,
+        db_project,
+        db_region,
+        db_cluster,
+        db_instance,
+        db_name,
+        user,
+        password,
+    ):
+        async def getconn() -> asyncpg.Connection:
+            conn = await connector.connect(  # type: ignore
+                f"projects/{db_project}/locations/{db_region}/clusters/{db_cluster}/instances/{db_instance}",
+                "asyncpg",
+                user=user,
+                password=password,
+                db=db_name,
+                enable_iam_auth=False,
+                ip_type=IPTypes.PUBLIC,
+            )
+            return conn
+
+        engine = create_async_engine(
+            "postgresql+asyncpg://",
+            async_creator=getconn,
+        )
+
+        key = object()
+        with pytest.raises(Exception):
+            AlloyDBEngine(key, engine)
+
     async def test_password(
         self,
         db_project,
@@ -147,6 +178,35 @@ class TestEngineAsync:
         await aexecute(engine, "SELECT 1")
         AlloyDBEngine._connector = None
         await engine.close()
+
+    async def test_missing_user_or_password(
+        self,
+        db_project,
+        db_region,
+        db_cluster,
+        db_instance,
+        db_name,
+        user,
+        password,
+    ):
+        with pytest.raises(ValueError):
+            await AlloyDBEngine.afrom_instance(
+                project_id=db_project,
+                instance=db_instance,
+                region=db_region,
+                cluster=db_cluster,
+                database=db_name,
+                user=user,
+            )
+        with pytest.raises(ValueError):
+            await AlloyDBEngine.afrom_instance(
+                project_id=db_project,
+                instance=db_instance,
+                region=db_region,
+                cluster=db_cluster,
+                database=db_name,
+                password=password,
+            )
 
     async def test_from_engine(
         self,

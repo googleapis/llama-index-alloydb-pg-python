@@ -203,6 +203,20 @@ class TestIndexSync:
         vs.drop_vector_index("secondindex")
         vs.drop_vector_index(DEFAULT_INDEX_NAME)
 
+    async def test_apply_vector_index_scann(self, vs):
+        index = ScaNNIndex(distance_strategy=DistanceStrategy.EUCLIDEAN)
+        vs.set_maintenance_work_mem(index.num_leaves, VECTOR_SIZE)
+        vs.apply_vector_index(index, concurrently=True)
+        assert vs.is_valid_index(DEFAULT_INDEX_NAME)
+        index = ScaNNIndex(
+            name="secondindex",
+            distance_strategy=DistanceStrategy.COSINE_DISTANCE,
+        )
+        vs.apply_vector_index(index)
+        assert vs.is_valid_index("secondindex")
+        vs.drop_vector_index("secondindex")
+        vs.drop_vector_index(DEFAULT_INDEX_NAME)
+
     async def test_is_valid_index(self, vs):
         is_valid = vs.is_valid_index("invalid_index")
         assert is_valid == False

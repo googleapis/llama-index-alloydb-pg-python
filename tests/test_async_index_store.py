@@ -19,13 +19,19 @@ from typing import Sequence
 
 import pytest
 import pytest_asyncio
-from llama_index.core.data_structs.data_structs import IndexDict, IndexGraph, IndexList
+from llama_index.core.data_structs.data_structs import (
+    IndexDict,
+    IndexGraph,
+    IndexList,
+    IndexStruct,
+)
 from sqlalchemy import RowMapping, text
 
 from llama_index_alloydb_pg import AlloyDBEngine
 from llama_index_alloydb_pg.async_index_store import AsyncAlloyDBIndexStore
 
 default_table_name_async = "index_store_" + str(uuid.uuid4())
+sync_method_exception_str = "Sync methods are not implemented for AsyncAlloyDBIndexStore . Use AlloyDBIndexStore  interface instead."
 
 
 async def aexecute(engine: AlloyDBEngine, query: str) -> None:
@@ -81,7 +87,7 @@ class TestAsyncAlloyDBIndexStore:
 
     @pytest_asyncio.fixture(scope="class")
     async def async_engine(
-        self, db_project, db_region, db_cluster, db_instance, db_name, user, password
+        self, db_project, db_region, db_cluster, db_instance, db_name
     ):
         async_engine = await AlloyDBEngine.afrom_instance(
             project_id=db_project,
@@ -109,9 +115,16 @@ class TestAsyncAlloyDBIndexStore:
         await aexecute(async_engine, query)
 
     async def test_init_with_constructor(self, async_engine):
+        key = object()
         with pytest.raises(Exception):
             AsyncAlloyDBIndexStore(
-                engine=async_engine, table_name=default_table_name_async
+                key, engine=async_engine, table_name=default_table_name_async
+            )
+
+    async def test_create_without_table(self, async_engine):
+        with pytest.raises(ValueError):
+            await AsyncAlloyDBIndexStore.create(
+                engine=async_engine, table_name="non-existent-table"
             )
 
     async def test_add_and_delete_index(self, index_store, async_engine):
@@ -169,3 +182,20 @@ class TestAsyncAlloyDBIndexStore:
             assert "No struct_id specified and more than one struct exists." in str(
                 w[-1].message
             )
+
+    async def test_index_structs(self, index_store):
+        with pytest.raises(Exception, match=sync_method_exception_str):
+            index_store.index_structs()
+
+    async def test_add_index_struct(self, index_store):
+        index_struct = IndexGraph()
+        with pytest.raises(Exception, match=sync_method_exception_str):
+            index_store.add_index_struct(index_struct)
+
+    async def test_delete_index_struct(self, index_store):
+        with pytest.raises(Exception, match=sync_method_exception_str):
+            index_store.delete_index_struct("non_existent_key")
+
+    async def test_get_index_struct(self, index_store):
+        with pytest.raises(Exception, match=sync_method_exception_str):
+            index_store.get_index_struct(struct_id="non_existent_id")
