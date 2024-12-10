@@ -134,8 +134,9 @@ class TestVectorStoreAsync:
         yield vs
 
     async def test_init_with_constructor(self, engine):
+        key = object()
         with pytest.raises(Exception):
-            AlloyDBVectorStore(engine, table_name=DEFAULT_TABLE)
+            AlloyDBVectorStore(key, engine, table_name=DEFAULT_TABLE)
 
     async def test_validate_id_column_create(self, engine, vs):
         test_id_column = "test_id_column"
@@ -513,8 +514,9 @@ class TestVectorStoreSync:
         yield vs
 
     async def test_init_with_constructor(self, engine):
+        key = object()
         with pytest.raises(Exception):
-            AlloyDBVectorStore(engine, table_name=DEFAULT_TABLE)
+            AlloyDBVectorStore(key, engine, table_name=DEFAULT_TABLE)
 
     async def test_validate_id_column_create(self, engine, vs):
         test_id_column = "test_id_column"
