@@ -14,6 +14,7 @@
 
 import os
 import uuid
+import warnings
 from typing import Sequence
 
 import pytest
@@ -372,7 +373,11 @@ class TestVectorStore:
         query = VectorStoreQuery(
             query_embedding=[1.0] * VECTOR_SIZE, filters=filters, similarity_top_k=-1
         )
-        results = await custom_vs.aquery(query)
+        with warnings.catch_warnings(record=True) as w:
+            results = await custom_vs.aquery(query)
+
+            assert len(w) == 1
+            assert "Expecting a scalar in the filter value" in str(w[-1].message)
 
         assert results.nodes is not None
         assert results.ids is not None
