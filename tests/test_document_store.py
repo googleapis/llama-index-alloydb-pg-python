@@ -123,9 +123,10 @@ class TestAlloyDBDocumentStoreAsync:
         await aexecute(async_engine, query)
 
     async def test_init_with_constructor(self, async_engine):
+        key = object()
         with pytest.raises(Exception):
             AlloyDBDocumentStore(
-                engine=async_engine, table_name=default_table_name_async
+                key, engine=async_engine, table_name=default_table_name_async
             )
 
     async def test_async_add_document(self, async_engine, doc_store):
@@ -414,8 +415,11 @@ class TestAlloyDBDocumentStoreSync:
         await aexecute(sync_engine, query)
 
     async def test_init_with_constructor(self, sync_engine):
+        key = object()
         with pytest.raises(Exception):
-            AlloyDBDocumentStore(engine=sync_engine, table_name=default_table_name_sync)
+            AlloyDBDocumentStore(
+                key, engine=sync_engine, table_name=default_table_name_sync
+            )
 
     async def test_docs(self, sync_doc_store):
         # Create and add document into the doc store.
