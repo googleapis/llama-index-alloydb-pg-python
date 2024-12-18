@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/googleapis/llama-index-alloydb-pg-python/compare/v0.1.0...v0.2.0) (2024-12-18)
+
+
+### Features
+
+* Adding chat store init methods. ([#29](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/29)) ([de53006](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/de53006d00fe1edd5b3e5c1349613e82f0c94794))
+
 ## 0.1.0 (2024-12-03)
 
 
