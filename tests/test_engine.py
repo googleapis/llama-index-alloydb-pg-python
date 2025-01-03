@@ -34,6 +34,8 @@ DEFAULT_IS_TABLE = "index_store_" + str(uuid.uuid4())
 DEFAULT_IS_TABLE_SYNC = "index_store_" + str(uuid.uuid4())
 DEFAULT_VS_TABLE = "vector_store_" + str(uuid.uuid4())
 DEFAULT_VS_TABLE_SYNC = "vector_store_" + str(uuid.uuid4())
+DEFAULT_CS_TABLE = "chat_store_" + str(uuid.uuid4())
+DEFAULT_CS_TABLE_SYNC = "chat_store_" + str(uuid.uuid4())
 VECTOR_SIZE = 768
 
 
@@ -118,7 +120,39 @@ class TestEngineAsync:
         await aexecute(engine, f'DROP TABLE "{DEFAULT_DS_TABLE}"')
         await aexecute(engine, f'DROP TABLE "{DEFAULT_VS_TABLE}"')
         await aexecute(engine, f'DROP TABLE "{DEFAULT_IS_TABLE}"')
+        await aexecute(engine, f'DROP TABLE "{DEFAULT_CS_TABLE}"')
         await engine.close()
+
+    async def test_init_with_constructor(
+        self,
+        db_project,
+        db_region,
+        db_cluster,
+        db_instance,
+        db_name,
+        user,
+        password,
+    ):
+        async def getconn() -> asyncpg.Connection:
+            conn = await connector.connect(  # type: ignore
+                f"projects/{db_project}/locations/{db_region}/clusters/{db_cluster}/instances/{db_instance}",
+                "asyncpg",
+                user=user,
+                password=password,
+                db=db_name,
+                enable_iam_auth=False,
+                ip_type=IPTypes.PUBLIC,
+            )
+            return conn
+
+        engine = create_async_engine(
+            "postgresql+asyncpg://",
+            async_creator=getconn,
+        )
+
+        key = object()
+        with pytest.raises(Exception):
+            AlloyDBEngine(key, engine)
 
     async def test_password(
         self,
@@ -144,6 +178,35 @@ class TestEngineAsync:
         await aexecute(engine, "SELECT 1")
         AlloyDBEngine._connector = None
         await engine.close()
+
+    async def test_missing_user_or_password(
+        self,
+        db_project,
+        db_region,
+        db_cluster,
+        db_instance,
+        db_name,
+        user,
+        password,
+    ):
+        with pytest.raises(ValueError):
+            await AlloyDBEngine.afrom_instance(
+                project_id=db_project,
+                instance=db_instance,
+                region=db_region,
+                cluster=db_cluster,
+                database=db_name,
+                user=user,
+            )
+        with pytest.raises(ValueError):
+            await AlloyDBEngine.afrom_instance(
+                project_id=db_project,
+                instance=db_instance,
+                region=db_region,
+                cluster=db_cluster,
+                database=db_name,
+                password=password,
+            )
 
     async def test_from_engine(
         self,
@@ -307,6 +370,22 @@ class TestEngineAsync:
         for row in results:
             assert row in expected
 
+    async def test_init_chat_store(self, engine):
+        await engine.ainit_chat_store_table(
+            table_name=DEFAULT_CS_TABLE,
+            schema_name="public",
+            overwrite_existing=True,
+        )
+        stmt = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{DEFAULT_CS_TABLE}';"
+        results = await afetch(engine, stmt)
+        expected = [
+            {"column_name": "id", "data_type": "integer"},
+            {"column_name": "key", "data_type": "character varying"},
+            {"column_name": "message", "data_type": "json"},
+        ]
+        for row in results:
+            assert row in expected
+
 
 @pytest.mark.asyncio
 class TestEngineSync:
@@ -359,6 +438,7 @@ class TestEngineSync:
         await aexecute(engine, f'DROP TABLE "{DEFAULT_DS_TABLE_SYNC}"')
         await aexecute(engine, f'DROP TABLE "{DEFAULT_IS_TABLE_SYNC}"')
         await aexecute(engine, f'DROP TABLE "{DEFAULT_VS_TABLE_SYNC}"')
+        await aexecute(engine, f'DROP TABLE "{DEFAULT_CS_TABLE_SYNC}"')
         await engine.close()
 
     async def test_password(
@@ -478,6 +558,22 @@ class TestEngineSync:
             {"column_name": "index_id", "data_type": "character varying"},
             {"column_name": "type", "data_type": "character varying"},
             {"column_name": "index_data", "data_type": "jsonb"},
+        ]
+        for row in results:
+            assert row in expected
+
+    async def test_init_chat_store(self, engine):
+        engine.init_chat_store_table(
+            table_name=DEFAULT_CS_TABLE_SYNC,
+            schema_name="public",
+            overwrite_existing=True,
+        )
+        stmt = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{DEFAULT_CS_TABLE_SYNC}';"
+        results = await afetch(engine, stmt)
+        expected = [
+            {"column_name": "id", "data_type": "integer"},
+            {"column_name": "key", "data_type": "character varying"},
+            {"column_name": "message", "data_type": "json"},
         ]
         for row in results:
             assert row in expected

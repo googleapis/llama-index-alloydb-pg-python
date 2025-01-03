@@ -35,11 +35,8 @@ from llama_index_alloydb_pg.vector_store import AlloyDBVectorStore
 
 DEFAULT_TABLE = "test_table" + str(uuid.uuid4()).replace("-", "_")
 DEFAULT_TABLE_ASYNC = "test_table" + str(uuid.uuid4()).replace("-", "_")
-DEFAULT_TABLE_OMNI = "test_table" + str(uuid.uuid4()).replace("-", "_")
-CUSTOM_TABLE = "test_table_custom" + str(uuid.uuid4()).replace("-", "_")
 DEFAULT_INDEX_NAME = DEFAULT_TABLE + DEFAULT_INDEX_NAME_SUFFIX
 DEFAULT_INDEX_NAME_ASYNC = DEFAULT_TABLE_ASYNC + DEFAULT_INDEX_NAME_SUFFIX
-DEFAULT_INDEX_NAME_OMNI = DEFAULT_TABLE_OMNI + DEFAULT_INDEX_NAME_SUFFIX
 VECTOR_SIZE = 5
 
 
@@ -122,14 +119,54 @@ class TestIndexSync:
 
     @pytest_asyncio.fixture(scope="class")
     async def vs(self, engine):
-        engine.init_vector_store_table(DEFAULT_TABLE, VECTOR_SIZE)
+        engine.init_vector_store_table(
+            DEFAULT_TABLE, VECTOR_SIZE, overwrite_existing=True
+        )
         vs = AlloyDBVectorStore.create_sync(
             engine,
             table_name=DEFAULT_TABLE,
         )
 
-        await vs.async_add(nodes)
+        vs.add(nodes)
+        vs.drop_vector_index()
+        yield vs
 
+    @pytest.fixture(scope="module")
+    def omni_host(self) -> str:
+        return get_env_var("OMNI_HOST", "AlloyDB Omni host address")
+
+    @pytest.fixture(scope="module")
+    def omni_user(self) -> str:
+        return get_env_var("OMNI_USER", "AlloyDB Omni user name")
+
+    @pytest.fixture(scope="module")
+    def omni_password(self) -> str:
+        return get_env_var("OMNI_PASSWORD", "AlloyDB Omni password")
+
+    @pytest.fixture(scope="module")
+    def omni_database_name(self) -> str:
+        return get_env_var("OMNI_DATABASE_ID", "AlloyDB Omni database name")
+
+    @pytest_asyncio.fixture(scope="class")
+    async def omni_engine(
+        self, omni_host, omni_user, omni_password, omni_database_name
+    ):
+        connstring = f"postgresql+asyncpg://{omni_user}:{omni_password}@{omni_host}:5432/{omni_database_name}"
+        omni_engine = AlloyDBEngine.from_connection_string(connstring)
+        yield omni_engine
+        await aexecute(omni_engine, f"DROP TABLE IF EXISTS {DEFAULT_TABLE}")
+        await omni_engine.close()
+
+    @pytest_asyncio.fixture(scope="class")
+    async def omni_vs(self, omni_engine):
+        omni_engine.init_vector_store_table(
+            DEFAULT_TABLE, VECTOR_SIZE, overwrite_existing=True
+        )
+        vs = AlloyDBVectorStore.create_sync(
+            omni_engine,
+            table_name=DEFAULT_TABLE,
+        )
+        vs.add(nodes)
         vs.drop_vector_index()
         yield vs
 
@@ -137,6 +174,7 @@ class TestIndexSync:
         index = HNSWIndex()
         vs.apply_vector_index(index)
         assert vs.is_valid_index(DEFAULT_INDEX_NAME)
+        vs.drop_vector_index(DEFAULT_INDEX_NAME)
 
     async def test_areindex(self, vs):
         if not vs.is_valid_index(DEFAULT_INDEX_NAME):
@@ -145,6 +183,7 @@ class TestIndexSync:
         vs.reindex()
         vs.reindex(DEFAULT_INDEX_NAME)
         assert vs.is_valid_index(DEFAULT_INDEX_NAME)
+        vs.drop_vector_index(DEFAULT_INDEX_NAME)
 
     async def test_dropindex(self, vs):
         vs.drop_vector_index()
@@ -162,10 +201,53 @@ class TestIndexSync:
         vs.apply_vector_index(index)
         assert vs.is_valid_index("secondindex")
         vs.drop_vector_index("secondindex")
+        vs.drop_vector_index(DEFAULT_INDEX_NAME)
+
+    async def test_apply_vector_index_scann(self, vs):
+        index = ScaNNIndex(distance_strategy=DistanceStrategy.EUCLIDEAN)
+        vs.set_maintenance_work_mem(index.num_leaves, VECTOR_SIZE)
+        vs.apply_vector_index(index, concurrently=True)
+        assert vs.is_valid_index(DEFAULT_INDEX_NAME)
+        index = ScaNNIndex(
+            name="secondindex",
+            distance_strategy=DistanceStrategy.COSINE_DISTANCE,
+        )
+        vs.apply_vector_index(index)
+        assert vs.is_valid_index("secondindex")
+        vs.drop_vector_index("secondindex")
+        vs.drop_vector_index(DEFAULT_INDEX_NAME)
 
     async def test_is_valid_index(self, vs):
         is_valid = vs.is_valid_index("invalid_index")
         assert is_valid == False
+
+    async def test_aapply_vector_index_scann(self, vs):
+        index = ScaNNIndex(distance_strategy=DistanceStrategy.EUCLIDEAN)
+        await vs.aset_maintenance_work_mem(index.num_leaves, VECTOR_SIZE)
+        await vs.aapply_vector_index(index, concurrently=True)
+        assert await vs.ais_valid_index(DEFAULT_INDEX_NAME)
+        index = ScaNNIndex(
+            name="secondindex",
+            distance_strategy=DistanceStrategy.COSINE_DISTANCE,
+        )
+        await vs.aapply_vector_index(index)
+        assert await vs.ais_valid_index("secondindex")
+        await vs.adrop_vector_index("secondindex")
+        await vs.adrop_vector_index()
+
+    async def test_apply_vector_index_scann_omni(self, omni_vs):
+        index = ScaNNIndex(distance_strategy=DistanceStrategy.EUCLIDEAN)
+        omni_vs.set_maintenance_work_mem(index.num_leaves, VECTOR_SIZE)
+        omni_vs.apply_vector_index(index, concurrently=True)
+        assert omni_vs.is_valid_index(DEFAULT_INDEX_NAME)
+        index = ScaNNIndex(
+            name="secondindex",
+            distance_strategy=DistanceStrategy.COSINE_DISTANCE,
+        )
+        omni_vs.apply_vector_index(index)
+        assert omni_vs.is_valid_index("secondindex")
+        omni_vs.drop_vector_index("secondindex")
+        omni_vs.drop_vector_index()
 
 
 @pytest.mark.asyncio(loop_scope="class")
@@ -213,7 +295,9 @@ class TestAsyncIndex:
 
     @pytest_asyncio.fixture(scope="class")
     async def vs(self, engine):
-        await engine.ainit_vector_store_table(DEFAULT_TABLE_ASYNC, VECTOR_SIZE)
+        await engine.ainit_vector_store_table(
+            DEFAULT_TABLE_ASYNC, VECTOR_SIZE, overwrite_existing=True
+        )
         vs = await AlloyDBVectorStore.create(
             engine,
             table_name=DEFAULT_TABLE_ASYNC,
@@ -244,28 +328,30 @@ class TestAsyncIndex:
         self, omni_host, omni_user, omni_password, omni_database_name
     ):
         connstring = f"postgresql+asyncpg://{omni_user}:{omni_password}@{omni_host}:5432/{omni_database_name}"
-        print(f"Connecting to AlloyDB Omni with {connstring}")
-
         async_engine = create_async_engine(connstring)
         omni_engine = AlloyDBEngine.from_engine(async_engine)
         yield omni_engine
-        await aexecute(omni_engine, f"DROP TABLE IF EXISTS {DEFAULT_TABLE_OMNI}")
+        await aexecute(omni_engine, f"DROP TABLE IF EXISTS {DEFAULT_TABLE_ASYNC}")
         await omni_engine.close()
 
     @pytest_asyncio.fixture(scope="class")
-    async def omni_vs(self, engine):
-        await engine.ainit_vector_store_table(DEFAULT_TABLE_OMNI, VECTOR_SIZE)
+    async def omni_vs(self, omni_engine):
+        await omni_engine.ainit_vector_store_table(
+            DEFAULT_TABLE_ASYNC, VECTOR_SIZE, overwrite_existing=True
+        )
         vs = await AlloyDBVectorStore.create(
-            engine,
-            table_name=DEFAULT_TABLE_OMNI,
+            omni_engine,
+            table_name=DEFAULT_TABLE_ASYNC,
         )
         await vs.async_add(nodes)
+        await vs.adrop_vector_index()
         yield vs
 
     async def test_aapply_vector_index(self, vs):
         index = HNSWIndex()
         await vs.aapply_vector_index(index)
         assert await vs.ais_valid_index(DEFAULT_INDEX_NAME_ASYNC)
+        await vs.adrop_vector_index(DEFAULT_INDEX_NAME_ASYNC)
 
     async def test_areindex(self, vs):
         if not await vs.ais_valid_index(DEFAULT_INDEX_NAME_ASYNC):
@@ -274,6 +360,7 @@ class TestAsyncIndex:
         await vs.areindex()
         await vs.areindex(DEFAULT_INDEX_NAME_ASYNC)
         assert await vs.ais_valid_index(DEFAULT_INDEX_NAME_ASYNC)
+        await vs.adrop_vector_index(DEFAULT_INDEX_NAME_ASYNC)
 
     async def test_dropindex(self, vs):
         await vs.adrop_vector_index()
@@ -310,11 +397,11 @@ class TestAsyncIndex:
         await vs.adrop_vector_index("secondindex")
         await vs.adrop_vector_index()
 
-    async def test_aapply_alloydb_scann_index_ScaNN(self, omni_vs):
+    async def test_aapply_vector_index_scann_omni(self, omni_vs):
         index = ScaNNIndex(distance_strategy=DistanceStrategy.EUCLIDEAN)
         await omni_vs.aset_maintenance_work_mem(index.num_leaves, VECTOR_SIZE)
         await omni_vs.aapply_vector_index(index, concurrently=True)
-        assert await omni_vs.ais_valid_index(DEFAULT_INDEX_NAME_OMNI)
+        assert await omni_vs.ais_valid_index(DEFAULT_INDEX_NAME_ASYNC)
         index = ScaNNIndex(
             name="secondindex",
             distance_strategy=DistanceStrategy.COSINE_DISTANCE,
@@ -323,3 +410,17 @@ class TestAsyncIndex:
         assert await omni_vs.ais_valid_index("secondindex")
         await omni_vs.adrop_vector_index("secondindex")
         await omni_vs.adrop_vector_index()
+
+    async def test_apply_vector_index_scann(self, vs):
+        index = ScaNNIndex(distance_strategy=DistanceStrategy.EUCLIDEAN)
+        vs.set_maintenance_work_mem(index.num_leaves, VECTOR_SIZE)
+        vs.apply_vector_index(index, concurrently=True)
+        assert vs.is_valid_index(DEFAULT_INDEX_NAME_ASYNC)
+        index = ScaNNIndex(
+            name="secondindex",
+            distance_strategy=DistanceStrategy.COSINE_DISTANCE,
+        )
+        vs.apply_vector_index(index)
+        assert vs.is_valid_index("secondindex")
+        vs.drop_vector_index("secondindex")
+        vs.drop_vector_index()
