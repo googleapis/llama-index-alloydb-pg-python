@@ -133,13 +133,14 @@ class AsyncAlloyDBChatStore(BaseChatStore):
         insert_query = f"""
                 INSERT INTO "{self._schema_name}"."{self._table_name}" (key, message)
                 VALUES (:key, :message);"""
-        params = []
-        for message in messages:
-            param = {
+
+        params = [
+            {
                 "key": key,
                 "message": json.dumps(message.dict()),
             }
-            params.append(param)
+            for message in messages
+        ]
 
         await self.__aexecute_query(insert_query, params)
 
@@ -231,10 +232,10 @@ class AsyncAlloyDBChatStore(BaseChatStore):
             Optional[ChatMessage]: The `ChatMessage` object that was deleted, or `None` if no message
             was associated with the key or could be deleted.
         """
-        query = f"""SELECT * from "{self._schema_name}"."{self._table_name}" WHERE key = '{key}' ORDER BY id;"""
+        query = f"""SELECT * from "{self._schema_name}"."{self._table_name}" WHERE key = '{key}' ORDER BY id DESC LIMIT 1;"""
         results = await self.__afetch_query(query)
         if results:
-            id_to_be_deleted = results[-1].get("id")
+            id_to_be_deleted = results[0].get("id")
             delete_query = f"""DELETE FROM "{self._schema_name}"."{self._table_name}" WHERE id = '{id_to_be_deleted}' RETURNING *;"""
             result = await self.__afetch_query(delete_query)
             result = result[0]
@@ -255,8 +256,7 @@ class AsyncAlloyDBChatStore(BaseChatStore):
         results = await self.__afetch_query(query)
         keys = []
         if results:
-            for row in results:
-                keys.append(row.get("key"))
+            keys = [row.get("key") for row in results]
         return keys
 
     def set_messages(self, key: str, messages: List[ChatMessage]) -> None:
