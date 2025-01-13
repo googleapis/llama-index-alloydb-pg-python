@@ -543,10 +543,10 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         query_stmt = f'SELECT * {scoring_stmt} FROM "{self._schema_name}"."{self._table_name}" {filters_stmt} {order_stmt} {limit_stmt}'
         async with self._engine.connect() as conn:
             if self._index_query_options:
-                query_options_stmt = (
-                    f"SET LOCAL {self._index_query_options.to_string()};"
-                )
-                await conn.execute(text(query_options_stmt))
+                # Set each query option individually
+                for query_option in self._index_query_options.to_string().split(","):
+                    query_options_stmt = f"SET LOCAL {query_option};"
+                    await conn.execute(text(query_options_stmt))
             result = await conn.execute(text(query_stmt))
             result_map = result.mappings()
             results = result_map.fetchall()
