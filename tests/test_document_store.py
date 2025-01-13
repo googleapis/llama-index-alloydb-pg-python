@@ -108,6 +108,7 @@ class TestAlloyDBDocumentStoreAsync:
         yield async_engine
 
         await async_engine.close()
+        await async_engine._connector.close_async()
 
     @pytest_asyncio.fixture(scope="class")
     async def doc_store(self, async_engine):
@@ -400,6 +401,7 @@ class TestAlloyDBDocumentStoreSync:
         yield sync_engine
 
         await sync_engine.close()
+        await sync_engine._connector.close_async()
 
     @pytest_asyncio.fixture(scope="class")
     async def sync_doc_store(self, sync_engine):
