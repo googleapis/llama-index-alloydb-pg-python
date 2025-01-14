@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.0](https://github.com/googleapis/llama-index-alloydb-pg-python/compare/v0.1.0...v0.2.0) (2025-01-14)
+
+
+### Features
+
+* Adding AlloyDB Chat Store ([#37](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/37)) ([320b448](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/320b448fc60b2a41c4b3e1b90084d799319260eb))
+* Adding Async Chat Store ([#35](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/35)) ([dd98771](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/dd987718f0482177d03c84eee6334703613461d0))
+* Adding chat store init methods. ([#29](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/29)) ([de53006](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/de53006d00fe1edd5b3e5c1349613e82f0c94794))
+
+
+### Bug Fixes
+
+* **deps:** Update dependency pytest-asyncio to v0.25.2 ([#44](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/44)) ([6371491](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/63714917888cbd147241832aca506fbb68641b72))
+
 ## 0.1.0 (2024-12-03)
 
 
