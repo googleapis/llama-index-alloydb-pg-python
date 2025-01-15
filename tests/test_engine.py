@@ -122,6 +122,7 @@ class TestEngineAsync:
         await aexecute(engine, f'DROP TABLE "{DEFAULT_IS_TABLE}"')
         await aexecute(engine, f'DROP TABLE "{DEFAULT_CS_TABLE}"')
         await engine.close()
+        await engine._connector.close_async()
 
     async def test_init_with_constructor(
         self,
@@ -178,6 +179,7 @@ class TestEngineAsync:
         await aexecute(engine, "SELECT 1")
         AlloyDBEngine._connector = None
         await engine.close()
+        await engine._connector.close_async()
 
     async def test_missing_user_or_password(
         self,
@@ -304,6 +306,7 @@ class TestEngineAsync:
         assert engine
         await aexecute(engine, "SELECT 1")
         await engine.close()
+        await engine._connector.close_async()
 
     async def test_init_document_store(self, engine):
         await engine.ainit_doc_store_table(
@@ -440,6 +443,7 @@ class TestEngineSync:
         await aexecute(engine, f'DROP TABLE "{DEFAULT_VS_TABLE_SYNC}"')
         await aexecute(engine, f'DROP TABLE "{DEFAULT_CS_TABLE_SYNC}"')
         await engine.close()
+        await engine._connector.close_async()
 
     async def test_password(
         self,
@@ -465,6 +469,7 @@ class TestEngineSync:
         await aexecute(engine, "SELECT 1")
         AlloyDBEngine._connector = None
         await engine.close()
+        await engine._connector.close_async()
 
     async def test_engine_constructor_key(
         self,
@@ -494,6 +499,7 @@ class TestEngineSync:
         assert engine
         await aexecute(engine, "SELECT 1")
         await engine.close()
+        await engine._connector.close_async()
 
     async def test_init_document_store(self, engine):
         engine.init_doc_store_table(
