@@ -544,7 +544,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         async with self._engine.connect() as conn:
             if self._index_query_options:
                 # Set each query option individually
-                for query_option in self._index_query_options.to_string().split(","):
+                for query_option in self._index_query_options.to_parameter():
                     query_options_stmt = f"SET LOCAL {query_option};"
                     await conn.execute(text(query_options_stmt))
             result = await conn.execute(text(query_stmt))
