@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import enum
+import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Optional
@@ -67,6 +68,11 @@ class QueryOptions(ABC):
         """Convert index attributes to list of configurations."""
         raise NotImplementedError("to_parameter method must be implemented by subclass")
 
+    @abstractmethod
+    def to_string(self) -> str:
+        """Convert index attributes to string."""
+        raise NotImplementedError("to_string method must be implemented by subclass")
+
 
 @dataclass
 class HNSWIndex(BaseIndex):
@@ -87,6 +93,14 @@ class HNSWQueryOptions(QueryOptions):
         """Convert index attributes to list of configurations."""
         return [f"hnsw.ef_search = {self.ef_search}"]
 
+    def to_string(self) -> str:
+        """Convert index attributes to string."""
+        warnings.warn(
+            "to_string is deprecated, use to_parameter instead.",
+            DeprecationWarning,
+        )
+        return f"hnsw.ef_search = {self.ef_search}"
+
 
 @dataclass
 class IVFFlatIndex(BaseIndex):
@@ -105,6 +119,14 @@ class IVFFlatQueryOptions(QueryOptions):
     def to_parameter(self) -> list[str]:
         """Convert index attributes to list of configurations."""
         return [f"ivfflat.probes = {self.probes}"]
+
+    def to_string(self) -> str:
+        """Convert index attributes to string."""
+        warnings.warn(
+            "to_string is deprecated, use to_parameter instead.",
+            DeprecationWarning,
+        )
+        return f"ivfflat.probes = {self.probes}"
 
 
 @dataclass
@@ -127,6 +149,14 @@ class IVFQueryOptions(QueryOptions):
     def to_parameter(self) -> list[str]:
         """Convert index attributes to list of configurations."""
         return [f"ivf.probes = {self.probes}"]
+
+    def to_string(self) -> str:
+        """Convert index attributes to string."""
+        warnings.warn(
+            "to_string is deprecated, use to_parameter instead.",
+            DeprecationWarning,
+        )
+        return f"ivf.probes = {self.probes}"
 
 
 @dataclass
@@ -153,3 +183,11 @@ class ScaNNQueryOptions(QueryOptions):
             f"scann.num_leaves_to_search = {self.num_leaves_to_search}",
             f"scann.pre_reordering_num_neighbors = {self.pre_reordering_num_neighbors}",
         ]
+
+    def to_string(self) -> str:
+        """Convert index attributes to string."""
+        warnings.warn(
+            "to_string is deprecated, use to_parameter instead.",
+            DeprecationWarning,
+        )
+        return f"scann.num_leaves_to_search = {self.num_leaves_to_search}, scann.pre_reordering_num_neighbors = {self.pre_reordering_num_neighbors}"
