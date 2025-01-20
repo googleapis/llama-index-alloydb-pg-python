@@ -27,6 +27,7 @@ from llama_index_alloydb_pg.async_reader import AsyncAlloyDBReader
 
 default_table_name_async = "reader_test_" + str(uuid.uuid4())
 
+
 async def aexecute(engine: AlloyDBEngine, query: str) -> None:
     async with engine._pool.connect() as conn:
         await conn.execute(text(query))
