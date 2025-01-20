@@ -12,19 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .chat_store import AlloyDBChatStore
-from .document_store import AlloyDBDocumentStore
-from .engine import AlloyDBEngine, Column
-from .index_store import AlloyDBIndexStore
-from .vector_store import AlloyDBVectorStore
-from .version import __version__
+name: Schedule Reporter
 
-_all = [
-    "AlloyDBChatStore",
-    "AlloyDBDocumentStore",
-    "AlloyDBEngine",
-    "AlloyDBIndexStore",
-    "AlloyDBVectorStore",
-    "Column",
-    "__version__",
-]
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Runs at 6 AM every morning
+
+jobs:
+  run_reporter:
+    uses: googleapis/langchain-google-alloydb-pg-python/.github/workflows/cloud_build_failure_reporter.yml@main
+    with:
+      trigger_names: "integration-test-nightly,continuous-test-on-merge"
