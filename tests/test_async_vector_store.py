@@ -32,6 +32,7 @@ from sqlalchemy.engine.row import RowMapping
 
 from llama_index_alloydb_pg import AlloyDBEngine, Column
 from llama_index_alloydb_pg.async_vector_store import AsyncAlloyDBVectorStore
+from llama_index_alloydb_pg.indexes import HNSWQueryOptions, ScaNNQueryOptions
 
 DEFAULT_TABLE = "test_table" + str(uuid.uuid4())
 DEFAULT_TABLE_CUSTOM_VS = "test_table" + str(uuid.uuid4())
@@ -156,6 +157,23 @@ class TestVectorStore:
                 "nullable_int_field",
                 "nullable_str_field",
             ],
+            index_query_options=HNSWQueryOptions(ef_search=1),
+        )
+        yield vs
+
+    @pytest_asyncio.fixture(scope="class")
+    async def custom_vs_scann(self, engine, custom_vs):
+        vs = await AsyncAlloyDBVectorStore.create(
+            engine,
+            table_name=DEFAULT_TABLE_CUSTOM_VS,
+            metadata_columns=[
+                "len",
+                "nullable_int_field",
+                "nullable_str_field",
+            ],
+            index_query_options=ScaNNQueryOptions(
+                num_leaves_to_search=1, pre_reordering_num_neighbors=2
+            ),
         )
         yield vs
 
@@ -320,6 +338,25 @@ class TestVectorStore:
         assert results.similarities is not None
         assert len(results.nodes) == 3
         assert results.nodes[0].get_content(metadata_mode=MetadataMode.NONE) == "foo"
+
+    async def test_aquery_scann(self, engine, custom_vs_scann):
+        # Note: To be migrated to a pytest dependency on test_async_add
+        # Blocked due to unexpected fixtures reloads while running integration test suite
+        await aexecute(engine, f'TRUNCATE TABLE "{DEFAULT_TABLE_CUSTOM_VS}"')
+        # setting extra metadata to be indexed in separate column
+        for node in nodes:
+            node.metadata["len"] = len(node.text)
+
+        await custom_vs_scann.async_add(nodes)
+        query = VectorStoreQuery(
+            query_embedding=[1.0] * VECTOR_SIZE, similarity_top_k=3
+        )
+        results = await custom_vs_scann.aquery(query)
+
+        assert results.nodes is not None
+        assert results.ids is not None
+        assert results.similarities is not None
+        assert len(results.nodes) == 3
 
     async def test_aquery_filters(self, engine, custom_vs):
         # Note: To be migrated to a pytest dependency on test_async_add
