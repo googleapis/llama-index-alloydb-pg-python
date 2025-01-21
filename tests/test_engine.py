@@ -179,7 +179,6 @@ class TestEngineAsync:
         await aexecute(engine, "SELECT 1")
         AlloyDBEngine._connector = None
         await engine.close()
-        await engine._connector.close()
 
     async def test_missing_user_or_password(
         self,
@@ -306,11 +305,12 @@ class TestEngineAsync:
         assert engine
         await aexecute(engine, "SELECT 1")
         await engine.close()
-        await engine._connector.close()
 
     async def test_init_document_store(self, engine):
         await engine.ainit_doc_store_table(
-            table_name=DEFAULT_DS_TABLE, schema_name="public", overwrite_existing=True
+            table_name=DEFAULT_DS_TABLE,
+            schema_name="public",
+            overwrite_existing=True,
         )
         stmt = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{DEFAULT_DS_TABLE}';"
         results = await afetch(engine, stmt)
@@ -338,13 +338,21 @@ class TestEngineAsync:
                 "data_type": "character varying",
                 "is_nullable": "NO",
             },
-            {"column_name": "li_metadata", "data_type": "jsonb", "is_nullable": "NO"},
+            {
+                "column_name": "li_metadata",
+                "data_type": "jsonb",
+                "is_nullable": "NO",
+            },
             {
                 "column_name": "embedding",
                 "data_type": "USER-DEFINED",
                 "is_nullable": "YES",
             },
-            {"column_name": "node_data", "data_type": "json", "is_nullable": "NO"},
+            {
+                "column_name": "node_data",
+                "data_type": "json",
+                "is_nullable": "NO",
+            },
             {
                 "column_name": "ref_doc_id",
                 "data_type": "character varying",
@@ -469,7 +477,6 @@ class TestEngineSync:
         await aexecute(engine, "SELECT 1")
         AlloyDBEngine._connector = None
         await engine.close()
-        await engine._connector.close()
 
     async def test_engine_constructor_key(
         self,
@@ -533,13 +540,21 @@ class TestEngineSync:
                 "data_type": "character varying",
                 "is_nullable": "NO",
             },
-            {"column_name": "li_metadata", "data_type": "jsonb", "is_nullable": "NO"},
+            {
+                "column_name": "li_metadata",
+                "data_type": "jsonb",
+                "is_nullable": "NO",
+            },
             {
                 "column_name": "embedding",
                 "data_type": "USER-DEFINED",
                 "is_nullable": "YES",
             },
-            {"column_name": "node_data", "data_type": "json", "is_nullable": "NO"},
+            {
+                "column_name": "node_data",
+                "data_type": "json",
+                "is_nullable": "NO",
+            },
             {
                 "column_name": "ref_doc_id",
                 "data_type": "character varying",
