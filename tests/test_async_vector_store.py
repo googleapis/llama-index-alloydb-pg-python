@@ -118,7 +118,7 @@ class TestVectorStore:
         await aexecute(engine, f'DROP TABLE IF EXISTS "{DEFAULT_TABLE}"')
         await aexecute(engine, f'DROP TABLE IF EXISTS "{DEFAULT_TABLE_CUSTOM_VS}"')
         await engine.close()
-        await engine._connector.close_async()
+        await engine._connector.close()
 
     @pytest_asyncio.fixture(scope="class")
     async def vs(self, engine):

@@ -100,7 +100,7 @@ class TestAsyncAlloyDBIndexStore:
         yield async_engine
 
         await async_engine.close()
-        await async_engine._connector.close_async()
+        await async_engine._connector.close()
 
     @pytest_asyncio.fixture(scope="class")
     async def index_store(self, async_engine):
