@@ -76,7 +76,7 @@ def _parse_doc_from_row(
 
 
 class AsyncAlloyDBReader(BasePydanticReader):
-    """Load documents from PostgreSQL.
+    """Load documents from AlloyDB.
 
     Each document represents one row of the result. The `content_columns` are
     written into the `text` of the document. The `metadata_columns` are written
@@ -104,7 +104,7 @@ class AsyncAlloyDBReader(BasePydanticReader):
 
         Args:
             key (object): Prevent direct constructor usage.
-            engine (AlloyDBEngine): AsyncEngine with pool connection to the postgres database
+            engine (AlloyDBEngine): AsyncEngine with pool connection to the alloydb database
             query (Optional[str], optional): SQL query. Defaults to None.
             content_columns (Optional[list[str]], optional): Column that represent a Document's page_content. Defaults to the first column.
             metadata_columns (Optional[list[str]], optional): Column(s) that represent a Document's metadata. Defaults to None.
@@ -144,7 +144,7 @@ class AsyncAlloyDBReader(BasePydanticReader):
         """Create an AsyncAlloyDBReader instance.
 
         Args:
-            engine (AlloyDBEngine):AsyncEngine with pool connection to the postgres database
+            engine (AlloyDBEngine):AsyncEngine with pool connection to the alloydb database
             query (Optional[str], optional): SQL query. Defaults to None.
             table_name (Optional[str], optional): Name of table to query. Defaults to None.
             schema_name (str, optional): Name of the schema where table is located. Defaults to "public".
@@ -230,11 +230,11 @@ class AsyncAlloyDBReader(BasePydanticReader):
         return "AsyncAlloyDBReader"
 
     async def aload_data(self) -> list[Document]:
-        """Load PostgreSQL data into Document objects."""
+        """Load AlloyDB data into Document objects."""
         return [doc async for doc in self.alazy_load_data()]
 
     async def alazy_load_data(self) -> AsyncIterable[Document]:  # type: ignore
-        """Load PostgreSQL data into Document objects lazily."""
+        """Load AlloyDB data into Document objects lazily."""
         async with self.pool.connect() as connection:
             result_proxy = await connection.execute(text(self.query))
             # load document one by one
