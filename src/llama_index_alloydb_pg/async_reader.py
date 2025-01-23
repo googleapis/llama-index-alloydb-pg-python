@@ -230,11 +230,11 @@ class AsyncAlloyDBReader(BasePydanticReader):
         return "AsyncAlloyDBReader"
 
     async def aload_data(self) -> list[Document]:
-        """Load AlloyDB data into Document objects."""
+        """Asynchronously load AlloyDB data into Document objects."""
         return [doc async for doc in self.alazy_load_data()]
 
     async def alazy_load_data(self) -> AsyncIterable[Document]:  # type: ignore
-        """Load AlloyDB data into Document objects lazily."""
+        """Asynchronously load AlloyDB data into Document objects lazily."""
         async with self.pool.connect() as connection:
             result_proxy = await connection.execute(text(self.query))
             # load document one by one
