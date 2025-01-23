@@ -110,7 +110,7 @@ class AsyncAlloyDBReader(BasePydanticReader):
             metadata_columns (Optional[list[str]], optional): Column(s) that represent a Document's metadata. Defaults to None.
             formatter (Optional[Callable], optional): A function to format page content (OneOf: format, formatter). Defaults to None.
             metadata_json_column (Optional[str], optional): Column to store metadata as JSON. Defaults to "llamaindex_metadata".
-            is_remote (Optional[bool]): Whether the data is loaded from a remote API or a local file.
+            is_remote (bool): Whether the data is loaded from a remote API or a local file.
 
         Raises:
             Exception: If called directly by user.
@@ -153,7 +153,7 @@ class AsyncAlloyDBReader(BasePydanticReader):
             metadata_json_column (Optional[str], optional): Column to store metadata as JSON. Defaults to "llamaindex_metadata".
             format (Optional[str], optional): Format of page content (OneOf: text, csv, YAML, JSON). Defaults to 'text'.
             formatter (Optional[Callable], optional): A function to format page content (OneOf: format, formatter). Defaults to None.
-            is_remote (Optional[bool]): Whether the data is loaded from a remote API or a local file.
+            is_remote (bool): Whether the data is loaded from a remote API or a local file.
 
 
         Returns:
