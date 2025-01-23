@@ -109,7 +109,7 @@ class TestAsyncAlloyDBReader:
             docs.append(doc)
         return docs
 
-    async def test_create_loader_with_invalid_parameters(self, async_engine):
+    async def test_create_reader_with_invalid_parameters(self, async_engine):
         with pytest.raises(ValueError):
             await AsyncAlloyDBReader.create(
                 engine=async_engine,
@@ -153,12 +153,12 @@ class TestAsyncAlloyDBReader:
         """
         await aexecute(async_engine, insert_query)
 
-        loader = await AsyncAlloyDBReader.create(
+        reader = await AsyncAlloyDBReader.create(
             engine=async_engine,
             table_name=table_name,
         )
 
-        documents = await self._collect_async_items(loader.alazy_load_data())
+        documents = await self._collect_async_items(reader.alazy_load_data())
 
         expected_document = Document(
             text="1",
@@ -334,7 +334,7 @@ class TestAsyncAlloyDBReader:
             VALUES ('Apple', '{variety}', 150, 1, '{metadata}');"""
         await aexecute(async_engine, insert_query)
 
-        loader = await AsyncAlloyDBReader.create(
+        reader = await AsyncAlloyDBReader.create(
             engine=async_engine,
             query=f'SELECT * FROM "{table_name}";',
             metadata_columns=[
@@ -342,7 +342,7 @@ class TestAsyncAlloyDBReader:
             ],
         )
 
-        documents = await self._collect_async_items(loader.alazy_load_data())
+        documents = await self._collect_async_items(reader.alazy_load_data())
 
         expected_docs = [
             Document(
@@ -388,7 +388,7 @@ class TestAsyncAlloyDBReader:
                 str(row[column]) for column in content_columns if column in row
             )
 
-        loader = await AsyncAlloyDBReader.create(
+        reader = await AsyncAlloyDBReader.create(
             engine=async_engine,
             query=f'SELECT * FROM "{table_name}";',
             content_columns=[
@@ -399,7 +399,7 @@ class TestAsyncAlloyDBReader:
             formatter=my_formatter,
         )
 
-        documents = await self._collect_async_items(loader.alazy_load_data())
+        documents = await self._collect_async_items(reader.alazy_load_data())
 
         expected_documents = [
             Document(
@@ -440,7 +440,7 @@ class TestAsyncAlloyDBReader:
                     """
         await aexecute(async_engine, insert_query)
 
-        loader = await AsyncAlloyDBReader.create(
+        reader = await AsyncAlloyDBReader.create(
             engine=async_engine,
             query=f'SELECT * FROM "{table_name}";',
             content_columns=[
@@ -451,7 +451,7 @@ class TestAsyncAlloyDBReader:
             format="YAML",
         )
 
-        documents = await self._collect_async_items(loader.alazy_load_data())
+        documents = await self._collect_async_items(reader.alazy_load_data())
 
         expected_docs = [
             Document(
