@@ -18,6 +18,7 @@ import json
 from typing import Any, AsyncIterable, Callable, Iterable, Iterator, List, Optional
 
 from llama_index.core.readers.base import BasePydanticReader
+from llama_index.core.bridge.pydantic import ConfigDict
 from llama_index.core.schema import Document
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -86,8 +87,7 @@ class AsyncAlloyDBReader(BasePydanticReader):
 
     __create_key = object()
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
     def __init__(
         self,
