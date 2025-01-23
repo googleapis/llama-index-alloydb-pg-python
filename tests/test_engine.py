@@ -122,6 +122,7 @@ class TestEngineAsync:
         await aexecute(engine, f'DROP TABLE "{DEFAULT_IS_TABLE}"')
         await aexecute(engine, f'DROP TABLE "{DEFAULT_CS_TABLE}"')
         await engine.close()
+        await engine._connector.close()
 
     async def test_init_with_constructor(
         self,
@@ -307,7 +308,9 @@ class TestEngineAsync:
 
     async def test_init_document_store(self, engine):
         await engine.ainit_doc_store_table(
-            table_name=DEFAULT_DS_TABLE, schema_name="public", overwrite_existing=True
+            table_name=DEFAULT_DS_TABLE,
+            schema_name="public",
+            overwrite_existing=True,
         )
         stmt = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{DEFAULT_DS_TABLE}';"
         results = await afetch(engine, stmt)
@@ -335,13 +338,21 @@ class TestEngineAsync:
                 "data_type": "character varying",
                 "is_nullable": "NO",
             },
-            {"column_name": "li_metadata", "data_type": "jsonb", "is_nullable": "NO"},
+            {
+                "column_name": "li_metadata",
+                "data_type": "jsonb",
+                "is_nullable": "NO",
+            },
             {
                 "column_name": "embedding",
                 "data_type": "USER-DEFINED",
                 "is_nullable": "YES",
             },
-            {"column_name": "node_data", "data_type": "json", "is_nullable": "NO"},
+            {
+                "column_name": "node_data",
+                "data_type": "json",
+                "is_nullable": "NO",
+            },
             {
                 "column_name": "ref_doc_id",
                 "data_type": "character varying",
@@ -440,6 +451,7 @@ class TestEngineSync:
         await aexecute(engine, f'DROP TABLE "{DEFAULT_VS_TABLE_SYNC}"')
         await aexecute(engine, f'DROP TABLE "{DEFAULT_CS_TABLE_SYNC}"')
         await engine.close()
+        await engine._connector.close()
 
     async def test_password(
         self,
@@ -494,6 +506,7 @@ class TestEngineSync:
         assert engine
         await aexecute(engine, "SELECT 1")
         await engine.close()
+        await engine._connector.close()
 
     async def test_init_document_store(self, engine):
         engine.init_doc_store_table(
@@ -527,13 +540,21 @@ class TestEngineSync:
                 "data_type": "character varying",
                 "is_nullable": "NO",
             },
-            {"column_name": "li_metadata", "data_type": "jsonb", "is_nullable": "NO"},
+            {
+                "column_name": "li_metadata",
+                "data_type": "jsonb",
+                "is_nullable": "NO",
+            },
             {
                 "column_name": "embedding",
                 "data_type": "USER-DEFINED",
                 "is_nullable": "YES",
             },
-            {"column_name": "node_data", "data_type": "json", "is_nullable": "NO"},
+            {
+                "column_name": "node_data",
+                "data_type": "json",
+                "is_nullable": "NO",
+            },
             {
                 "column_name": "ref_doc_id",
                 "data_type": "character varying",
