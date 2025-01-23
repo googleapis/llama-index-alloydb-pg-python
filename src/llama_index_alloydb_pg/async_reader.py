@@ -86,6 +86,9 @@ class AsyncAlloyDBReader(BasePydanticReader):
 
     __create_key = object()
 
+    class Config:
+        extra = "allow"
+
     def __init__(
         self,
         key: object,
@@ -115,7 +118,7 @@ class AsyncAlloyDBReader(BasePydanticReader):
         if key != AsyncAlloyDBReader.__create_key:
             raise Exception("Only create class through 'create' method!")
 
-        super().__init__(extra='allow', is_remote=is_remote)
+        super().__init__(is_remote=is_remote)
 
         self.pool = pool
         self.query = query
