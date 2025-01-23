@@ -17,8 +17,8 @@ from __future__ import annotations
 import json
 from typing import Any, AsyncIterable, Callable, Iterable, Iterator, List, Optional
 
-from llama_index.core.readers.base import BasePydanticReader
 from llama_index.core.bridge.pydantic import ConfigDict
+from llama_index.core.readers.base import BasePydanticReader
 from llama_index.core.schema import Document
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
