@@ -95,7 +95,7 @@ class AsyncAlloyDBReader(BasePydanticReader):
         metadata_columns: list[str],
         formatter: Callable,
         metadata_json_column: Optional[str] = None,
-        is_remote: bool = True
+        is_remote: bool = True,
     ) -> None:
         """AsyncAlloyDBReader constructor.
 
@@ -117,12 +117,12 @@ class AsyncAlloyDBReader(BasePydanticReader):
 
         super().__init__(is_remote=is_remote)
 
-        self.pool=pool
-        self.query=query
-        self.content_columns=content_columns
-        self.metadata_columns=metadata_columns
-        self.formatter=formatter
-        self.metadata_json_column=metadata_json_column
+        self.pool = pool
+        self.query = query
+        self.content_columns = content_columns
+        self.metadata_columns = metadata_columns
+        self.formatter = formatter
+        self.metadata_json_column = metadata_json_column
 
     @classmethod
     async def create(
@@ -136,7 +136,7 @@ class AsyncAlloyDBReader(BasePydanticReader):
         metadata_json_column: Optional[str] = None,
         format: Optional[str] = None,
         formatter: Optional[Callable] = None,
-        is_remote: bool = True
+        is_remote: bool = True,
     ) -> AsyncAlloyDBReader:
         """Create an AsyncAlloyDBReader instance.
 
@@ -219,7 +219,7 @@ class AsyncAlloyDBReader(BasePydanticReader):
             metadata_columns=metadata_columns,
             formatter=formatter,
             metadata_json_column=metadata_json_column,
-            is_remote=is_remote
+            is_remote=is_remote,
         )
 
     @classmethod
