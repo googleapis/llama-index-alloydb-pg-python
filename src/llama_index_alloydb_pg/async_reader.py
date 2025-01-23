@@ -24,7 +24,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from .engine import AlloyDBEngine
 
-DEFAULT_CONTENT_COL = "text"
 DEFAULT_METADATA_COL = "llamaindex_metadata"
 
 
@@ -87,13 +86,6 @@ class AsyncAlloyDBReader(BasePydanticReader):
 
     __create_key = object()
 
-    pool: AsyncEngine
-    query: str
-    content_columns: list[str]
-    metadata_columns: list[str]
-    formatter: Callable
-    metadata_json_column: Optional[str]
-
     def __init__(
         self,
         key: object,
@@ -103,6 +95,7 @@ class AsyncAlloyDBReader(BasePydanticReader):
         metadata_columns: list[str],
         formatter: Callable,
         metadata_json_column: Optional[str] = None,
+        is_remote: bool = True
     ) -> None:
         """AsyncAlloyDBReader constructor.
 
@@ -114,6 +107,7 @@ class AsyncAlloyDBReader(BasePydanticReader):
             metadata_columns (Optional[list[str]], optional): Column(s) that represent a Document's metadata. Defaults to None.
             formatter (Optional[Callable], optional): A function to format page content (OneOf: format, formatter). Defaults to None.
             metadata_json_column (Optional[str], optional): Column to store metadata as JSON. Defaults to "llamaindex_metadata".
+            is_remote (Optional[bool]): Whether the data is loaded from a remote API or a local file.
 
         Raises:
             Exception: If called directly by user.
@@ -121,14 +115,14 @@ class AsyncAlloyDBReader(BasePydanticReader):
         if key != AsyncAlloyDBReader.__create_key:
             raise Exception("Only create class through 'create' method!")
 
-        super().__init__(
-            pool=pool,  # type: ignore
-            query=query,
-            content_columns=content_columns,
-            metadata_columns=metadata_columns,
-            formatter=formatter,
-            metadata_json_column=metadata_json_column,
-        )
+        super().__init__(is_remote=is_remote)
+
+        self.pool=pool
+        self.query=query
+        self.content_columns=content_columns
+        self.metadata_columns=metadata_columns
+        self.formatter=formatter
+        self.metadata_json_column=metadata_json_column
 
     @classmethod
     async def create(
@@ -142,6 +136,7 @@ class AsyncAlloyDBReader(BasePydanticReader):
         metadata_json_column: Optional[str] = None,
         format: Optional[str] = None,
         formatter: Optional[Callable] = None,
+        is_remote: bool = True
     ) -> AsyncAlloyDBReader:
         """Create an AsyncAlloyDBReader instance.
 
@@ -155,6 +150,7 @@ class AsyncAlloyDBReader(BasePydanticReader):
             metadata_json_column (Optional[str], optional): Column to store metadata as JSON. Defaults to "llamaindex_metadata".
             format (Optional[str], optional): Format of page content (OneOf: text, csv, YAML, JSON). Defaults to 'text'.
             formatter (Optional[Callable], optional): A function to format page content (OneOf: format, formatter). Defaults to None.
+            is_remote (Optional[bool]): Whether the data is loaded from a remote API or a local file.
 
 
         Returns:
@@ -223,6 +219,7 @@ class AsyncAlloyDBReader(BasePydanticReader):
             metadata_columns=metadata_columns,
             formatter=formatter,
             metadata_json_column=metadata_json_column,
+            is_remote=is_remote
         )
 
     @classmethod
@@ -262,10 +259,10 @@ class AsyncAlloyDBReader(BasePydanticReader):
 
     def lazy_load_data(self) -> Iterator[Document]:
         raise NotImplementedError(
-            "Sync methods are not implemented for AsyncAlloyDBReader . Use AlloyDBReader  interface instead."
+            "Sync methods are not implemented for AsyncAlloyDBReader. Use AlloyDBReader interface instead."
         )
 
     def load_data(self) -> List[Document]:
         raise NotImplementedError(
-            "Sync methods are not implemented for AsyncAlloyDBReader . Use AlloyDBReader  interface instead."
+            "Sync methods are not implemented for AsyncAlloyDBReader. Use AlloyDBReader interface instead."
         )
