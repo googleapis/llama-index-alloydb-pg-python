@@ -14,13 +14,11 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, AsyncIterable, Iterable
-from typing import Callable, List, Optional
-from sqlalchemy.ext.asyncio import AsyncEngine
+from typing import AsyncIterable, Callable, Iterable, List, Optional
+
 from llama_index.core.bridge.pydantic import ConfigDict
-from llama_index.core.schema import Document
-from llama_index.core.llms import ChatMessage
 from llama_index.core.readers.base import BasePydanticReader
+from llama_index.core.schema import Document
 
 from .async_reader import AsyncAlloyDBReader
 from .engine import AlloyDBEngine
@@ -103,7 +101,8 @@ class AlloyDBReader(BasePydanticReader):
             metadata_json_column=metadata_json_column,
             format=format,
             formatter=formatter,
-            is_remote=is_remote,)
+            is_remote=is_remote,
+        )
         reader = await engine._run_as_async(coro)
         return cls(cls.__create_key, engine, reader, is_remote)
 
@@ -149,7 +148,8 @@ class AlloyDBReader(BasePydanticReader):
             metadata_json_column=metadata_json_column,
             format=format,
             formatter=formatter,
-            is_remote=is_remote,)
+            is_remote=is_remote,
+        )
         reader = engine._run_as_sync(coro)
         return cls(cls.__create_key, engine, reader, is_remote)
 
@@ -160,15 +160,11 @@ class AlloyDBReader(BasePydanticReader):
 
     async def aload_data(self) -> list[Document]:
         """Asynchronously load AlloyDB data into Document objects."""
-        return await self._engine._run_as_async(
-            self.__reader.aload_data()
-        )
+        return await self._engine._run_as_async(self.__reader.aload_data())
 
     def load_data(self) -> list[Document]:
         """Synchronously load AlloyDB data into Document objects."""
-        return self._engine._run_as_sync(
-            self.__reader.aload_data()
-        )
+        return self._engine._run_as_sync(self.__reader.aload_data())
 
     async def alazy_load_data(self) -> AsyncIterable[Document]:  # type: ignore
         """Asynchronously load AlloyDB data into Document objects lazily."""
@@ -179,7 +175,6 @@ class AlloyDBReader(BasePydanticReader):
                 yield result
             except StopAsyncIteration:
                 break
-
 
     def lazy_load_data(self) -> Iterable[Document]:  # type: ignore
         """Synchronously aoad AlloyDB data into Document objects lazily."""
