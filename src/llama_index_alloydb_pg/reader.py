@@ -30,8 +30,7 @@ class AlloyDBReader(BasePydanticReader):
     """Chat Store Table stored in an AlloyDB for PostgreSQL database."""
 
     __create_key = object()
-
-    model_config = ConfigDict(extra="allow")
+    is_remote: bool = True
 
     def __init__(
         self,
