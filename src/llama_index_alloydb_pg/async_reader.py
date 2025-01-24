@@ -119,12 +119,12 @@ class AsyncAlloyDBReader(BasePydanticReader):
 
         super().__init__(is_remote=is_remote)
 
-        self.pool = pool
-        self.query = query
-        self.content_columns = content_columns
-        self.metadata_columns = metadata_columns
-        self.formatter = formatter
-        self.metadata_json_column = metadata_json_column
+        self._pool = pool
+        self._query = query
+        self._content_columns = content_columns
+        self._metadata_columns = metadata_columns
+        self._formatter = formatter
+        self._metadata_json_column = metadata_json_column
 
     @classmethod
     async def create(
@@ -234,8 +234,8 @@ class AsyncAlloyDBReader(BasePydanticReader):
 
     async def alazy_load_data(self) -> AsyncIterable[Document]:  # type: ignore
         """Asynchronously load AlloyDB data into Document objects lazily."""
-        async with self.pool.connect() as connection:
-            result_proxy = await connection.execute(text(self.query))
+        async with self._pool.connect() as connection:
+            result_proxy = await connection.execute(text(self._query))
             # load document one by one
             while True:
                 row = result_proxy.fetchone()
@@ -243,20 +243,20 @@ class AsyncAlloyDBReader(BasePydanticReader):
                     break
 
                 row_data = {}
-                column_names = self.content_columns + self.metadata_columns
+                column_names = self._content_columns + self._metadata_columns
                 column_names += (
-                    [self.metadata_json_column] if self.metadata_json_column else []
+                    [self._metadata_json_column] if self._metadata_json_column else []
                 )
                 for column in column_names:
                     value = getattr(row, column)
                     row_data[column] = value
 
                 yield _parse_doc_from_row(
-                    self.content_columns,
-                    self.metadata_columns,
+                    self._content_columns,
+                    self._metadata_columns,
                     row_data,
-                    self.formatter,
-                    self.metadata_json_column,
+                    self._formatter,
+                    self._metadata_json_column,
                 )
 
     def lazy_load_data(self) -> Iterator[Document]:
