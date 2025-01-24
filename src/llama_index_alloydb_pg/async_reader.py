@@ -15,7 +15,15 @@
 from __future__ import annotations
 
 import json
-from typing import Any, AsyncIterable, Callable, Iterable, Iterator, List, Optional
+from typing import (
+    Any,
+    AsyncIterable,
+    Callable,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+)
 
 from llama_index.core.bridge.pydantic import ConfigDict
 from llama_index.core.readers.base import BasePydanticReader
@@ -86,8 +94,7 @@ class AsyncAlloyDBReader(BasePydanticReader):
     """
 
     __create_key = object()
-
-    model_config = ConfigDict(extra="allow")
+    is_remote: bool = True
 
     def __init__(
         self,
