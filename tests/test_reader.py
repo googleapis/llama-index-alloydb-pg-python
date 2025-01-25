@@ -90,7 +90,12 @@ class TestAlloyDBReaderAsync:
 
     @pytest_asyncio.fixture(scope="class")
     async def async_engine(
-        self, db_project, db_region, db_cluster, db_instance, db_name,
+        self,
+        db_project,
+        db_region,
+        db_cluster,
+        db_instance,
+        db_name,
     ):
         async_engine = await AlloyDBEngine.afrom_instance(
             project_id=db_project,
@@ -512,7 +517,12 @@ class TestAlloyDBReaderSync:
 
     @pytest_asyncio.fixture(scope="class")
     async def sync_engine(
-        self, db_project, db_region, db_cluster, db_instance, db_name,
+        self,
+        db_project,
+        db_region,
+        db_cluster,
+        db_instance,
+        db_name,
     ):
         sync_engine = await AlloyDBEngine.afrom_instance(
             project_id=db_project,
