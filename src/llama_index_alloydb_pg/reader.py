@@ -167,7 +167,7 @@ class AlloyDBReader(BasePydanticReader):
 
     async def alazy_load_data(self) -> AsyncIterable[Document]:  # type: ignore
         """Asynchronously load AlloyDB data into Document objects lazily."""
-        iterator = self.__reader.alazy_load_data()
+        iterator = self.__reader.alazy_load_data().__aiter__()
         while True:
             try:
                 result = await self._engine._run_as_async(iterator.__anext__())
@@ -177,7 +177,7 @@ class AlloyDBReader(BasePydanticReader):
 
     def lazy_load_data(self) -> Iterable[Document]:  # type: ignore
         """Synchronously aoad AlloyDB data into Document objects lazily."""
-        iterator = self.__reader.alazy_load_data()
+        iterator = self.__reader.alazy_load_data().__aiter__()
         while True:
             try:
                 result = self._engine._run_as_sync(iterator.__anext__())
