@@ -36,7 +36,7 @@ class AlloyDBChatStore(BaseChatStore):
         Args:
             key (object): Key to prevent direct constructor usage.
             engine (AlloyDBEngine): Database connection pool.
-            chat_store (AsyncAlloyDBChatStore): The async only IndexStore implementation
+            chat_store (AsyncAlloyDBChatStore): The async only ChatStore implementation
 
         Raises:
             Exception: If constructor is directly called by the user.
