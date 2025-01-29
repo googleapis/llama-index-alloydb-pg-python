@@ -91,7 +91,7 @@ class TestAsyncAlloyDBReader:
             region=db_region,
             database=db_name,
         )
-        self._create_default_table(async_engine)
+        await self._create_default_table(async_engine)
 
         yield async_engine
 
