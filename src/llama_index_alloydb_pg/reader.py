@@ -167,6 +167,7 @@ class AlloyDBReader(BasePydanticReader):
 
     async def alazy_load_data(self) -> AsyncIterable[Document]:  # type: ignore
         """Asynchronously load AlloyDB data into Document objects lazily."""
+        # The return type in the underlying base class is an Iterable which we are overriding to an AsyncIterable in this implementation.
         iterator = self.__reader.alazy_load_data().__aiter__()
         while True:
             try:
