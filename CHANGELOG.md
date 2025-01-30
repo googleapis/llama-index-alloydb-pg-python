@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.2.0](https://github.com/googleapis/llama-index-alloydb-pg-python/compare/v0.1.0...v0.2.0) (2025-01-30)
+
+
+### Features
+
+* Adding AlloyDB Chat Store ([#37](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/37)) ([320b448](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/320b448fc60b2a41c4b3e1b90084d799319260eb))
+* Adding AlloyDB Reader ([#57](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/57)) ([7314d83](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/7314d835e62ccd7e8fe59b35f37dccaaee6aed36))
+* Adding Async AlloyDB Reader ([#55](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/55)) ([56e6479](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/56e64790c8eb85979d60b87366adb46596232e24))
+* Adding Async Chat Store ([#35](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/35)) ([dd98771](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/dd987718f0482177d03c84eee6334703613461d0))
+* Adding chat store init methods. ([#29](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/29)) ([de53006](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/de53006d00fe1edd5b3e5c1349613e82f0c94794))
+
+
+### Bug Fixes
+
+* Change default metadata_json_column default value ([#66](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/66)) ([ecb53c8](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/ecb53c80d311deb9232f0f8844761a816fc01bc0))
+* Programming error while setting multiple query option ([#47](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/47)) ([5f1405e](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/5f1405ed7ba7941c9c9a4370a428c720d857e6af))
+* Query and return only selected metadata columns ([#52](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/52)) ([dff623b](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/dff623bf8d340811ed88271e59b11d0f996cc811))
+* Update lazy_load_data return type to Iterable. ([#61](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/61)) ([98f6c65](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/98f6c65fc77cbb7f25b22d7118bbb89f3c674b2f))
+
 ## 0.1.0 (2024-12-03)
 
 
