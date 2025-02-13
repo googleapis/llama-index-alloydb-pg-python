@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/googleapis/llama-index-alloydb-pg-python/compare/v0.2.0...v0.2.1) (2025-02-13)
+
+
+### Documentation
+
+* Adds a quickstart guide ([#74](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/74)) ([fd5c24d](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/fd5c24d89c33c2fa011c5c9ba758f9a5a5fce8d3))
+
 ## [0.2.0](https://github.com/googleapis/llama-index-alloydb-pg-python/compare/v0.1.0...v0.2.0) (2025-01-30)
 
 
