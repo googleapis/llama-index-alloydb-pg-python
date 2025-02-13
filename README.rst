@@ -110,6 +110,50 @@ Use a vector store to store embedded data and perform vector search.
    )
 
 
+Chat Store Usage
+~~~~~~~~~~~~~~~~~~~
+
+A chat store serves as a centralized interface to store your chat history.
+
+.. code-block:: python
+
+   from llama_index.core.memory import ChatMemoryBuffer
+   from llama_index_cloud_sql_pg import AlloyDBChatStore, AlloyDBEngine
+
+
+   engine = await AlloyDBEngine.afrom_instance(
+      "project-id", "region", "my-cluster", "my-instance", "my-database"
+   )
+   chat_store = await AlloyDBChatStore.create(
+      engine=engine, table_name="chat_store"
+   )
+   memory = ChatMemoryBuffer.from_defaults(
+      token_limit=3000,
+      chat_store=chat_store,
+      chat_store_key="user1",
+   )
+
+
+Document Reader Usage
+~~~~~~~~~~~~~~~~~~~
+
+A Reader ingest data from different data sources and data formats into a simple `Document` representation.
+
+.. code-block:: python
+
+   from llama_index.core.memory import ChatMemoryBuffer
+   from llama_index_cloud_sql_pg import AlloyDBReader, AlloyDBEngine
+
+
+   engine = await AlloyDBEngine.afrom_instance(
+      "project-id", "region", "my-cluster", "my-instance", "my-database"
+   )
+   reader = await AlloyDBReader.create(
+      engine=engine, table_name="my-db-table"
+   )
+   documents = reader.load_data()
+
+
 Document Store Usage
 ~~~~~~~~~~~~~~~~~~~~~
 
