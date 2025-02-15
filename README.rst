@@ -83,7 +83,7 @@ Code samples and snippets live in the `samples/`_ folder.
 .. _samples/: https://github.com/googleapis/llama-index-alloydb-pg-python/tree/main/samples
 
 Vector Store Usage
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Use a vector store to store embedded data and perform vector search.
 
@@ -111,7 +111,7 @@ Use a vector store to store embedded data and perform vector search.
 
 
 Chat Store Usage
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A chat store serves as a centralized interface to store your chat history.
 
@@ -135,7 +135,7 @@ A chat store serves as a centralized interface to store your chat history.
 
 
 Document Reader Usage
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A Reader ingest data from different data sources and data formats into a simple `Document` representation.
 
@@ -155,7 +155,7 @@ A Reader ingest data from different data sources and data formats into a simple 
 
 
 Document Store Usage
-~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Use a document store to make storage and maintenance of data easier.
 
