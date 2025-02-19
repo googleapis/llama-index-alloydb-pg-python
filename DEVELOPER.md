@@ -21,7 +21,7 @@ This allows your code to dynamically reflect any changes you make to the library
 
 ## Dependencies
 
-The core dependencies needed for the working of this library are mentioned in `requirements.txt`, but it's version ranges along withe the testing depeendencies are set in `pyproject.toml`.
+The core dependencies needed for the working of this library are mentioned in `requirements.txt`, but it's version ranges along with the testing dependencies are set in `pyproject.toml`.
 
 ## Testing
 
