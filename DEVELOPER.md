@@ -33,22 +33,22 @@ You can run the formatter locally by following these steps.
 1.  Download all test dependencies
     ```bash
     pip install .[test]
-    '''
+    ```
 
 1.  Run the black code formatter
     ```bash
     black .
-    '''
+    ```
 
 1.  Run isort to sort all imports
     ```bash
     isort .
-    '''
+    ```
 
 1.  Run mypy type checker
     ```bash
     mypy .
-    '''
+    ```
 
 ### Run tests locally
 
@@ -143,7 +143,7 @@ Here is a breakdown of the report:
 ### LlamaIndex Integration Docs
 
 Google hosts documentation on LlamaIndex's site for individual integration pages:
-[Vector Stores][vs], [Document Store][docstore], [Index Store][indexstore], [Reader][reader],and [Chat Store][chatstore].
+[Vector Stores][vs], [Document Store][docstore], [Index Store][indexstore], [Reader][reader], and [Chat Store][chatstore].
 
 Currently, manual PRs are made to the [LlamaIndex GitHub repo](https://github.com/run-llama/llama_index).
 
