@@ -3,6 +3,7 @@ AlloyDB for PostgreSQL for LlamaIndex
 
 |preview| |pypi| |versions|
 
+- `Client Library Documentation`_
 - `Product Documentation`_
 
 The **AlloyDB for PostgreSQL for LlamaIndex** package provides a first class experience for connecting to
@@ -19,6 +20,7 @@ AlloyDB instances from the LlamaIndex ecosystem while providing the following be
    :target: https://pypi.org/project/llama-index-alloydb-pg/
 .. |versions| image:: https://img.shields.io/pypi/pyversions/llama-index-alloydb-pg.svg
    :target: https://pypi.org/project/llama-index-alloydb-pg/
+.. _Client Library Documentation: https://cloud.google.com/python/docs/reference/llama-index-alloydb-pg/latest
 .. _Product Documentation: https://cloud.google.com/alloydb
 
 Quick Start
