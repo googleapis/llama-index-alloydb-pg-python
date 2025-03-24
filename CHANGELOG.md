@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/googleapis/llama-index-alloydb-pg-python/compare/v0.2.1...v0.2.2) (2025-03-24)
+
+
+### Bug Fixes
+
+* **engine:** Use run as async for engine close ([#96](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/96)) ([d675118](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/d6751189b4dc05a6fd8181c2ac9fc93dc0014200))
+
 ## [0.2.1](https://github.com/googleapis/llama-index-alloydb-pg-python/compare/v0.2.0...v0.2.1) (2025-02-18)
 
 
