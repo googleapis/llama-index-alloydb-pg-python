@@ -296,9 +296,9 @@ class TestAlloyDBIndexStoreSync:
 
         indexes = index_store.index_structs()
 
-        index_store.add_index_struct(index_dict_struct)
-        index_store.add_index_struct(index_graph_struct)
-        index_store.add_index_struct(index_list_struct)
+        assert index_dict_struct in indexes
+        assert index_list_struct in indexes
+        assert index_graph_struct in indexes
 
     async def test_warning(self, index_store):
         index_dict_struct = IndexDict()

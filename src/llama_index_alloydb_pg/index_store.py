@@ -136,6 +136,24 @@ class AlloyDBIndexStore(BaseIndexStore):
             self.__index_store.aadd_index_struct(index_struct)
         )
 
+    async def async_index_structs(self) -> list[IndexStruct]:
+        """Get all index structs.
+
+        Returns:
+            list[IndexStruct]: index structs
+
+        """
+        return self.__index_store.aindex_structs()
+
+    async def async_add_index_struct(self, index_struct: IndexStruct) -> None:
+        """Add an index struct.
+
+        Args:
+            index_struct (IndexStruct): index struct
+
+        """
+        return self.__index_store.add_index_struct(index_struct)
+
     async def adelete_index_struct(self, key: str) -> None:
         """Delete an index struct.
 
