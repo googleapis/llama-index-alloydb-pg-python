@@ -122,7 +122,6 @@ class TestEngineAsync:
         await aexecute(engine, f'DROP TABLE "{DEFAULT_IS_TABLE}"')
         await aexecute(engine, f'DROP TABLE "{DEFAULT_CS_TABLE}"')
         await engine.close()
-        await engine._connector.close()
 
     async def test_init_with_constructor(
         self,
@@ -451,7 +450,6 @@ class TestEngineSync:
         await aexecute(engine, f'DROP TABLE "{DEFAULT_VS_TABLE_SYNC}"')
         await aexecute(engine, f'DROP TABLE "{DEFAULT_CS_TABLE_SYNC}"')
         await engine.close()
-        await engine._connector.close()
 
     async def test_password(
         self,
@@ -506,7 +504,6 @@ class TestEngineSync:
         assert engine
         await aexecute(engine, "SELECT 1")
         await engine.close()
-        await engine._connector.close()
 
     async def test_init_document_store(self, engine):
         engine.init_doc_store_table(
