@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/googleapis/llama-index-alloydb-pg-python/compare/v0.2.2...v0.2.3) (2025-06-18)
+
+
+### Bug Fixes
+
+* Index store adds interface methods ([#116](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/116)) ([9039803](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/9039803481153ff0e59e301427870e6120cec8eb))
+
 ## [0.2.2](https://github.com/googleapis/llama-index-alloydb-pg-python/compare/v0.2.1...v0.2.2) (2025-03-24)
 
 
