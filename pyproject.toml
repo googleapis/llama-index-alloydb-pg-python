@@ -38,7 +38,7 @@ Changelog = "https://github.com/googleapis/llama-index-alloydb-pg-python/blob/ma
 [project.optional-dependencies]
 test = [
     "black[jupyter]==25.9.0",
-    "isort==6.1.0",
+    "isort==7.0.0",
     "mypy==1.18.2",
     "pytest-asyncio==1.2.0",
     "pytest==8.4.2",
