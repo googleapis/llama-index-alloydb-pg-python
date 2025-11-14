@@ -9,6 +9,7 @@ authors = [
     {name = "Google LLC", email = "googleapis-packages@google.com"}
 ]
 dependencies = [
+    "google-cloud-alloydb-connector[asyncpg]>=1.2.0, <1.9.1; python_version <= '3.9'",
     "google-cloud-alloydb-connector[asyncpg]>=1.2.0, <2.0.0",
     "pgvector>=0.2.5, <1.0.0",
     "SQLAlchemy[asyncio]>=2.0.25, <3.0.0",
