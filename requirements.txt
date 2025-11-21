@@ -1,5 +1,4 @@
-google-cloud-alloydb-connector[asyncpg]==1.10.0; python_version >= "3.10"
-google-cloud-alloydb-connector[asyncpg]==1.9.1; python_version <= "3.9"
+google-cloud-alloydb-connector[asyncpg]==1.10.0
 llama-index-core==0.14.8
 pgvector==0.4.1
 SQLAlchemy[asyncio]==2.0.44

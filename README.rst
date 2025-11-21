@@ -55,7 +55,7 @@ dependencies.
 Supported Python Versions
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Python >= 3.9
+Python >= 3.10
 
 Mac/Linux
 ^^^^^^^^^
