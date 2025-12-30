@@ -1,4 +1,4 @@
 google-cloud-alloydb-connector[asyncpg]==1.11.0
-llama-index-core==0.14.10
+llama-index-core==0.14.12
 pgvector==0.4.2
 SQLAlchemy[asyncio]==2.0.45
