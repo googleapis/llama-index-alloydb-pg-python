@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0](https://github.com/googleapis/llama-index-alloydb-pg-python/compare/v0.2.3...v1.0.0) (2026-01-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* Disable support for py3.9 and enable support for py3.13 ([#175](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/175))
+
+### Miscellaneous Chores
+
+* Disable support for py3.9 and enable support for py3.13 ([#175](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/175)) ([4ce2392](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/4ce239223af3b3f9e3b376ca25712907711d109a))
+
 ## [0.2.3](https://github.com/googleapis/llama-index-alloydb-pg-python/compare/v0.2.2...v0.2.3) (2025-06-18)
 
 
