@@ -1,4 +1,4 @@
 assign_issues:
-  - googleapis/llama-index-alloydb
+  - googleapis/llama-index-alloydb-team
 assign_prs:
-  - googleapis/llama-index-alloydb
+  - googleapis/llama-index-alloydb-team
