@@ -1,4 +1,4 @@
 google-cloud-alloydb-connector[asyncpg]==1.13.1
 llama-index-core==0.14.22
 pgvector==0.4.2
-SQLAlchemy[asyncio]==2.0.50
+SQLAlchemy[asyncio]==2.0.51
