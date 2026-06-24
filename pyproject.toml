@@ -41,7 +41,7 @@ test = [
     "isort==8.0.1",
     "mypy==2.1.0",
     "pytest-asyncio==1.4.0",
-    "pytest==9.1.0",
+    "pytest==9.1.1",
     "pytest-cov==7.1.0",
     "pytest-depends==1.0.1",
 ]
