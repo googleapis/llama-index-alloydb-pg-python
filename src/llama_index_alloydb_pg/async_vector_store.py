@@ -305,7 +305,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         if filters:
             all_filters.append(filters)
         filters_stmt = ""
-        bind_params = {}
+        bind_params: dict[str, Any] = {}
         if all_filters:
             all_metadata_filters = MetadataFilters(
                 filters=all_filters, condition=FilterCondition.AND
@@ -517,7 +517,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         # Vectors are already stored `self._embedding_column` so a custom embedding_field is ignored.
         query_filters = MetadataFilters(filters=filters, condition=FilterCondition.AND)
 
-        bind_params = {}
+        bind_params: dict[str, Any] = {}
         filters_stmt = self.__parse_metadata_filters_recursively(
             query_filters, bind_params
         )
@@ -566,7 +566,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         return results
 
     def __parse_metadata_filters_recursively(
-        self, metadata_filters: MetadataFilters, bind_params: dict
+        self, metadata_filters: MetadataFilters, bind_params: dict[str, Any]
     ) -> str:
         """
         Parses a MetadataFilters object into a SQL WHERE clause.
@@ -597,7 +597,9 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         )
         return f" {condition_value} ".join(where_clauses) if where_clauses else ""
 
-    def __parse_metadata_filter(self, filter: MetadataFilter, bind_params: dict) -> str:
+    def __parse_metadata_filter(
+        self, filter: MetadataFilter, bind_params: dict[str, Any]
+    ) -> str:
         key = self.__to_postgres_key(filter.key)
         op = self.__to_postgres_operator(filter.operator)
         param_name = f"param_{len(bind_params)}"
