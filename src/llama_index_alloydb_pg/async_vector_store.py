@@ -518,7 +518,9 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         query_filters = MetadataFilters(filters=filters, condition=FilterCondition.AND)
 
         bind_params = {}
-        filters_stmt = self.__parse_metadata_filters_recursively(query_filters, bind_params)
+        filters_stmt = self.__parse_metadata_filters_recursively(
+            query_filters, bind_params
+        )
         filters_stmt = f"WHERE {filters_stmt}" if filters_stmt else ""
         operator = self._distance_strategy.operator
         search_function = self._distance_strategy.search_function
@@ -527,7 +529,9 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         if query.query_embedding:
             bind_params["query_embedding"] = str(query.query_embedding)
             scoring_stmt = f", {search_function}({self._embedding_column}, :query_embedding) as distance"
-            order_stmt = f" ORDER BY {self._embedding_column} {operator} :query_embedding "
+            order_stmt = (
+                f" ORDER BY {self._embedding_column} {operator} :query_embedding "
+            )
         else:
             scoring_stmt = ""
             order_stmt = ""
@@ -579,7 +583,9 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
                     where_clauses.append(clause)
             elif isinstance(filter_item, MetadataFilters):
                 # Handle nested filters recursively
-                nested_clause = self.__parse_metadata_filters_recursively(filter_item, bind_params)
+                nested_clause = self.__parse_metadata_filters_recursively(
+                    filter_item, bind_params
+                )
                 if nested_clause:
                     where_clauses.append(f"({nested_clause})")
 
@@ -633,16 +639,20 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
                     Value -> '{filter.value}'"""
                 )
                 return ""
+            param_names = []
+            for i, e in enumerate(filter.value):
+                p_name = f"{param_name}_{i}"
+                bind_params[p_name] = (
+                    str(e)
+                    if filter.operator in [FilterOperator.ANY, FilterOperator.ALL]
+                    else e
+                )
+                param_names.append(f":{p_name}")
+            filter_value = ", ".join(param_names)
+
             if filter.operator in [FilterOperator.ANY, FilterOperator.ALL]:
-                bind_params[param_name] = filter.value
-                return f"({key})::jsonb {op} (ARRAY[:{param_name}])"
+                return f"({key})::jsonb {op} (ARRAY[{filter_value}])"
             else:
-                param_names = []
-                for i, e in enumerate(filter.value):
-                    p_name = f"{param_name}_{i}"
-                    bind_params[p_name] = e
-                    param_names.append(f":{p_name}")
-                filter_value = ", ".join(param_names)
                 return f"{key} {op} ({filter_value})"
 
         # Check if value is a number. If so, cast the metadata value to a float
