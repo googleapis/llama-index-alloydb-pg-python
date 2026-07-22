@@ -17,7 +17,7 @@ import asyncio
 from concurrent.futures import Future
 from dataclasses import dataclass
 from threading import Thread
-from typing import TYPE_CHECKING, Any, Awaitable, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Mapping, Optional, TypeVar, Union
 
 import aiohttp
 import google.auth  # type: ignore
@@ -143,6 +143,7 @@ class AlloyDBEngine:
         password: Optional[str] = None,
         ip_type: Union[str, IPTypes] = IPTypes.PUBLIC,
         iam_account_email: Optional[str] = None,
+        engine_args: Mapping = {},
     ) -> Future:
         # Running a loop in a background thread allows us to support
         # async methods from non-async environments
@@ -164,6 +165,7 @@ class AlloyDBEngine:
             loop=cls._default_loop,
             thread=cls._default_thread,
             iam_account_email=iam_account_email,
+            engine_args=engine_args,
         )
         return asyncio.run_coroutine_threadsafe(coro, cls._default_loop)
 
@@ -179,6 +181,7 @@ class AlloyDBEngine:
         password: Optional[str] = None,
         ip_type: Union[str, IPTypes] = IPTypes.PUBLIC,
         iam_account_email: Optional[str] = None,
+        engine_args: Mapping = {},
     ) -> AlloyDBEngine:
         """Create an AlloyDBEngine from an AlloyDB instance.
 
@@ -192,6 +195,7 @@ class AlloyDBEngine:
             password (Optional[str]): Cloud AlloyDB user password. Defaults to None.
             ip_type (Union[str, IPTypes], optional): IP address type. Defaults to IPTypes.PUBLIC.
             iam_account_email (Optional[str], optional): IAM service account email. Defaults to None.
+            engine_args (Mapping): Additional arguments passed directly to create_async_engine.
 
         Returns:
             AlloyDBEngine: A newly created AlloyDBEngine instance.
@@ -206,6 +210,7 @@ class AlloyDBEngine:
             password,
             ip_type,
             iam_account_email=iam_account_email,
+            engine_args=engine_args,
         )
         return future.result()
 
@@ -223,6 +228,7 @@ class AlloyDBEngine:
         loop: Optional[asyncio.AbstractEventLoop] = None,
         thread: Optional[Thread] = None,
         iam_account_email: Optional[str] = None,
+        engine_args: Mapping = {},
     ) -> AlloyDBEngine:
         """Create an AlloyDBEngine from an AlloyDB instance.
 
@@ -238,6 +244,7 @@ class AlloyDBEngine:
             loop (Optional[asyncio.AbstractEventLoop]): Async event loop used to create the engine.
             thread (Optional[Thread]): Thread used to create the engine async.
             iam_account_email (Optional[str]): IAM service account email.
+            engine_args (Mapping): Additional arguments passed directly to create_async_engine.
 
         Raises:
             ValueError: Raises error if only one of 'user' or 'password' is specified.
@@ -290,6 +297,7 @@ class AlloyDBEngine:
         engine = create_async_engine(
             "postgresql+asyncpg://",
             async_creator=getconn,
+            **engine_args,
         )
         return cls(cls.__create_key, engine, loop, thread)
 
@@ -305,6 +313,7 @@ class AlloyDBEngine:
         password: Optional[str] = None,
         ip_type: Union[str, IPTypes] = IPTypes.PUBLIC,
         iam_account_email: Optional[str] = None,
+        engine_args: Mapping = {},
     ) -> AlloyDBEngine:
         """Create an AlloyDBEngine from an AlloyDB instance.
 
@@ -318,6 +327,7 @@ class AlloyDBEngine:
             password (Optional[str], optional): Cloud AlloyDB user password. Defaults to None.
             ip_type (Union[str, IPTypes], optional): IP address type. Defaults to IPTypes.PUBLIC.
             iam_account_email (Optional[str], optional): IAM service account email. Defaults to None.
+            engine_args (Mapping): Additional arguments passed directly to create_async_engine.
 
         Returns:
             AlloyDBEngine: A newly created AlloyDBEngine instance.
@@ -332,6 +342,7 @@ class AlloyDBEngine:
             password,
             ip_type,
             iam_account_email=iam_account_email,
+            engine_args=engine_args,
         )
         return await asyncio.wrap_future(future)
 

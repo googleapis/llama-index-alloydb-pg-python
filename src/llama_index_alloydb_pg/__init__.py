@@ -14,19 +14,30 @@
 
 from .chat_store import AlloyDBChatStore
 from .document_store import AlloyDBDocumentStore
+from .embeddings import AlloyDBEmbedding
 from .engine import AlloyDBEngine, Column
 from .index_store import AlloyDBIndexStore
+from .model_manager import AlloyDBModel, AlloyDBModelManager
 from .reader import AlloyDBReader
+from .utils.pgvector_migrator import (
+    amigrate_pgvector_collection,
+    migrate_pgvector_collection,
+)
 from .vector_store import AlloyDBVectorStore
 from .version import __version__
 
-_all = [
+__all__ = [
     "AlloyDBChatStore",
     "AlloyDBDocumentStore",
+    "AlloyDBEmbedding",
     "AlloyDBEngine",
     "AlloyDBIndexStore",
+    "AlloyDBModel",
+    "AlloyDBModelManager",
     "AlloyDBReader",
     "AlloyDBVectorStore",
     "Column",
+    "amigrate_pgvector_collection",
+    "migrate_pgvector_collection",
     "__version__",
 ]

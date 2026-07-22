@@ -42,7 +42,7 @@ class TestAlloyDBIndex:
         assert DistanceStrategy.INNER_PRODUCT.operator == "<#>"
         assert DistanceStrategy.INNER_PRODUCT.search_function == "inner_product"
         assert DistanceStrategy.INNER_PRODUCT.index_function == "vector_ip_ops"
-        assert DistanceStrategy.INNER_PRODUCT.scann_index_function == "dot_product"
+        assert DistanceStrategy.INNER_PRODUCT.scann_index_function == "dot_prod"
 
     def test_hnsw_index(self):
         index = HNSWIndex(name="test_index", m=32, ef_construction=128)
@@ -103,15 +103,22 @@ class TestAlloyDBIndex:
         assert index.index_type == "ScaNN"
         assert index.num_leaves == 10
         assert index.quantizer == "sq8"  # Check default value
+        assert index.extension_name == "alloydb_scann"
+        assert index.get_index_function() == "cosine"
         assert index.index_options() == "(num_leaves = 10, quantizer = sq8)"
 
     def test_scann_query_options(self):
         options = ScaNNQueryOptions(
-            num_leaves_to_search=2, pre_reordering_num_neighbors=10
+            num_leaves_to_search=2,
+            pre_reordering_num_neighbors=10,
+            enable_preview_features=True,
+            max_allowed_num_levels=3,
         )
         assert options.to_parameter() == [
             "scann.num_leaves_to_search = 2",
             "scann.pre_reordering_num_neighbors = 10",
+            "scann.enable_preview_features = on",
+            "scann.max_allowed_num_levels = 3",
         ]
 
         with warnings.catch_warnings(record=True) as w:
