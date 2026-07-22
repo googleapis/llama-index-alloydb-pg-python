@@ -595,3 +595,17 @@ class TestEngineSync:
         ]
         for row in results:
             assert row in expected
+
+    async def test_engine_args(self, db_project, db_region, db_cluster, db_instance, db_name):
+        if not os.environ.get("PROJECT_ID"):
+            pytest.skip("Skipping live cluster test: PROJECT_ID not set.")
+        engine = await AlloyDBEngine.afrom_instance(
+            project_id=db_project,
+            cluster=db_cluster,
+            instance=db_instance,
+            region=db_region,
+            database=db_name,
+            engine_args={"pool_size": 5, "max_overflow": 10},
+        )
+        assert engine._pool is not None
+        await engine.close()
