@@ -20,7 +20,9 @@ from .index_store import AlloyDBIndexStore
 from .model_manager import AlloyDBModel, AlloyDBModelManager
 from .reader import AlloyDBReader
 from .utils.pgvector_migrator import (
+    alist_pgvector_collection_names,
     amigrate_pgvector_collection,
+    list_pgvector_collection_names,
     migrate_pgvector_collection,
 )
 from .vector_store import AlloyDBVectorStore
@@ -37,7 +39,9 @@ __all__ = [
     "AlloyDBReader",
     "AlloyDBVectorStore",
     "Column",
+    "alist_pgvector_collection_names",
     "amigrate_pgvector_collection",
+    "list_pgvector_collection_names",
     "migrate_pgvector_collection",
     "__version__",
 ]
