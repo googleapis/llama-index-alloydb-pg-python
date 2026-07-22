@@ -59,7 +59,9 @@ class TestAlloyDBModelManagerUnit:
 class TestAlloyDBModelManagerIntegration:
     @pytest.fixture(scope="module")
     def db_project(self) -> str:
-        return get_env_var("PROJECT_ID", "project id for google cloud")
+        if not os.environ.get("PROJECT_ID"):
+            pytest.skip("Skipping live cluster test: PROJECT_ID not set.")
+        return os.environ["PROJECT_ID"]
 
     @pytest.fixture(scope="module")
     def db_region(self) -> str:

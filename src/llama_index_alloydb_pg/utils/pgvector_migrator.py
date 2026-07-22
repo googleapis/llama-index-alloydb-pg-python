@@ -20,7 +20,8 @@ from typing import Any, AsyncIterator, Iterator, Optional, Sequence, TypeVar
 from sqlalchemy import RowMapping, text
 from sqlalchemy.exc import ProgrammingError, SQLAlchemyError
 
-from llama_index_alloydb_pg import AlloyDBEngine, AlloyDBVectorStore
+from ..engine import AlloyDBEngine
+from ..vector_store import AlloyDBVectorStore
 
 COLLECTIONS_TABLE = "langchain_pg_collection"
 EMBEDDINGS_TABLE = "langchain_pg_embedding"
