@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/googleapis/llama-index-alloydb-pg-python/compare/v0.3.0...v0.3.1) (2026-07-23)
+
+
+### Bug Fixes
+
+* Fix vulerability by using query parameters instead of string formatting ([#233](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/233)) ([18f0247](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/18f02470c90a5d1fca90aadbdd7d100520306433))
+
 ## [0.3.0](https://github.com/googleapis/llama-index-alloydb-pg-python/compare/v0.2.3...v0.3.0) (2026-01-13)
 
 
