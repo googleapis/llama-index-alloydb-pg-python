@@ -166,23 +166,40 @@ class ScaNNIndex(BaseIndex):
     quantizer: str = field(
         default="sq8", init=False
     )  # Disable `quantizer` initialization currently only supports the value "sq8"
+    extension_name: str = "alloydb_scann"
 
     def index_options(self) -> str:
         """Set index query options for vector store initialization."""
         return f"(num_leaves = {self.num_leaves}, quantizer = {self.quantizer})"
+
+    def get_index_function(self) -> str:
+        if self.distance_strategy == DistanceStrategy.EUCLIDEAN:
+            return "l2"
+        elif self.distance_strategy == DistanceStrategy.COSINE_DISTANCE:
+            return "cosine"
+        else:
+            return "dot_prod"
 
 
 @dataclass
 class ScaNNQueryOptions(QueryOptions):
     num_leaves_to_search: int = 1
     pre_reordering_num_neighbors: int = -1
+    enable_preview_features: Optional[bool] = None
+    max_allowed_num_levels: Optional[int] = None
 
     def to_parameter(self) -> list[str]:
         """Convert index attributes to list of configurations."""
-        return [
+        params = [
             f"scann.num_leaves_to_search = {self.num_leaves_to_search}",
             f"scann.pre_reordering_num_neighbors = {self.pre_reordering_num_neighbors}",
         ]
+        if self.enable_preview_features is not None:
+            preview_val = "on" if self.enable_preview_features else "off"
+            params.append(f"scann.enable_preview_features = {preview_val}")
+        if self.max_allowed_num_levels is not None:
+            params.append(f"scann.max_allowed_num_levels = {self.max_allowed_num_levels}")
+        return params
 
     def to_string(self) -> str:
         """Convert index attributes to string."""
@@ -190,4 +207,4 @@ class ScaNNQueryOptions(QueryOptions):
             "to_string is deprecated, use to_parameter instead.",
             DeprecationWarning,
         )
-        return f"scann.num_leaves_to_search = {self.num_leaves_to_search}, scann.pre_reordering_num_neighbors = {self.pre_reordering_num_neighbors}"
+        return ", ".join(self.to_parameter())
