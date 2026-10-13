@@ -464,7 +464,9 @@ class TestAsyncAlloyDBDocumentStore:
         )
         assert await doc_store.aget_document_hash(doc_id=injected_id) is None
         assert await doc_store.aget_ref_doc_info(ref_doc_id=injected_id) is None
-        assert await doc_store.aref_doc_exists(ref_doc_id=injected_id) is False
+        assert await doc_store._get_ref_doc_child_node_ids(ref_doc_id=injected_id) == {
+            "node_ids": []
+        }
         await doc_store.adelete_document(doc_id=injected_id, raise_error=False)
 
         assert await doc_store.adocument_exists(doc_id=doc.doc_id) is True

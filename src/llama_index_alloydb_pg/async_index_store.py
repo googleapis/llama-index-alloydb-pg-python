@@ -203,9 +203,8 @@ class AsyncAlloyDBIndexStore(BaseIndexStore):
                 if json is None:
                     return None
                 index_data = json.get("index_data")
-
-            if index_data:
-                return json_to_index_struct(index_data)
+                if index_data:
+                    return json_to_index_struct(index_data)
             return None
 
     def index_structs(self) -> list[IndexStruct]:
