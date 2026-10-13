@@ -15,7 +15,7 @@
 import os
 import uuid
 import warnings
-from typing import Sequence
+from typing import Any, Sequence
 
 import pytest
 import pytest_asyncio
@@ -454,3 +454,50 @@ class TestVectorStore:
     async def test_clear(self, vs):
         with pytest.raises(Exception, match=sync_method_exception_str):
             vs.clear()
+
+    async def test_parse_metadata_filters_parameterizes_key_and_value(self, custom_vs):
+        injected_key = "k' IS NULL OR 1=1 OR li_metadata->>'k"
+        injected_value = "x') OR 1=1;--"
+
+        bind_params: dict[str, Any] = {}
+        filters = MetadataFilters(
+            filters=[
+                MetadataFilter(
+                    key=injected_key,
+                    value=injected_value,
+                    operator=FilterOperator.EQ,
+                ),
+                MetadataFilter(
+                    key="len",
+                    value=3,
+                    operator=FilterOperator.EQ,
+                ),
+                MetadataFilter(
+                    key="tags",
+                    value='a"b',
+                    operator=FilterOperator.CONTAINS,
+                ),
+            ],
+            condition=FilterCondition.AND,
+        )
+
+        clause = custom_vs._AsyncAlloyDBVectorStore__parse_metadata_filters_recursively(
+            filters, bind_params
+        )
+
+        assert injected_key not in clause
+        assert injected_value not in clause
+        assert (
+            clause
+            == 'li_metadata->>:key_0 = :param_1 and "len"::float = :param_2 and (li_metadata->>:key_3)::jsonb @> :param_4 '
+        )
+        assert bind_params == {
+            "key_0": injected_key,
+            "param_1": injected_value,
+            "param_2": 3,
+            "key_3": "tags",
+            "param_4": '["a\\"b"]',
+        }
+
+        results = await custom_vs.aget_nodes(filters=filters)
+        assert len(results) == 0

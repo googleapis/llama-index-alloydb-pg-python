@@ -199,3 +199,16 @@ class TestAsyncAlloyDBIndexStore:
     async def test_get_index_struct(self, index_store):
         with pytest.raises(Exception, match=sync_method_exception_str):
             index_store.get_index_struct(struct_id="non_existent_id")
+
+    async def test_sql_injection_index_id_parameterization(self, index_store):
+        index_struct = IndexGraph()
+        await index_store.aadd_index_struct(index_struct)
+
+        injected_id = "nonexistent' OR '1'='1"
+        assert await index_store.aget_index_struct(injected_id) is None
+        await index_store.adelete_index_struct(injected_id)
+
+        assert (
+            await index_store.aget_index_struct(index_struct.index_id) == index_struct
+        )
+        await index_store.adelete_index_struct(index_struct.index_id)

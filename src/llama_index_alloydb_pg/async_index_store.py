@@ -104,9 +104,9 @@ class AsyncAlloyDBIndexStore(BaseIndexStore):
             await conn.execute(text(query), params)
             await conn.commit()
 
-    async def __afetch_query(self, query):
+    async def __afetch_query(self, query, params=None):
         async with self._engine.connect() as conn:
-            result = await conn.execute(text(query))
+            result = await conn.execute(text(query), params)
             result_map = result.mappings()
             results = result_map.fetchall()
             await conn.commit()
@@ -157,8 +157,9 @@ class AsyncAlloyDBIndexStore(BaseIndexStore):
             key (str): index struct key
 
         """
-        query = f"""DELETE FROM "{self._schema_name}"."{self._table_name}" WHERE index_id = '{key}'; """
-        await self.__aexecute_query(query)
+        query = f"""DELETE FROM "{self._schema_name}"."{self._table_name}" WHERE index_id = :key; """
+        params = {"key": key}
+        await self.__aexecute_query(query, params)
 
     async def async_index_structs(self) -> list[IndexStruct]:
         """Get all index structs.
@@ -194,8 +195,9 @@ class AsyncAlloyDBIndexStore(BaseIndexStore):
             warnings.warn("No struct_id specified and more than one struct exists.")
             return None
         else:
-            query = f"""SELECT * from "{self._schema_name}"."{self._table_name}" WHERE index_id = '{struct_id}';"""
-            result = await self.__afetch_query(query)
+            query = f"""SELECT * from "{self._schema_name}"."{self._table_name}" WHERE index_id = :struct_id;"""
+            params = {"struct_id": struct_id}
+            result = await self.__afetch_query(query, params)
             if result:
                 json = result[0]
                 if json is None:

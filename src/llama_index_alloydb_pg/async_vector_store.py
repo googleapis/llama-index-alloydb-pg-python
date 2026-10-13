@@ -156,9 +156,10 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         Returns:
             AsyncAlloyDBVectorStore
         """
-        stmt = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{table_name}' AND table_schema = '{schema_name}'"
+        stmt = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = :table_name AND table_schema = :schema_name"
+        params = {"table_name": table_name, "schema_name": schema_name}
         async with engine._pool.connect() as conn:
-            result = await conn.execute(text(stmt))
+            result = await conn.execute(text(stmt), params)
             result_map = result.mappings()
             results = result_map.fetchall()
         columns = {}
@@ -477,10 +478,15 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         query = f"""
         SELECT tablename, indexname
         FROM pg_indexes
-        WHERE tablename = '{self._table_name}' AND schemaname = '{self._schema_name}' AND indexname = '{index_name}';
+        WHERE tablename = :table_name AND schemaname = :schema_name AND indexname = :index_name;
         """
+        params = {
+            "table_name": self._table_name,
+            "schema_name": self._schema_name,
+            "index_name": index_name,
+        }
         async with self._engine.connect() as conn:
-            result = await conn.execute(text(query))
+            result = await conn.execute(text(query), params)
             result_map = result.mappings()
             results = result_map.fetchall()
         return bool(len(results) == 1)
@@ -600,7 +606,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
     def __parse_metadata_filter(
         self, filter: MetadataFilter, bind_params: dict[str, Any]
     ) -> str:
-        key = self.__to_postgres_key(filter.key)
+        key = self.__to_postgres_key(filter.key, bind_params)
         op = self.__to_postgres_operator(filter.operator)
         param_name = f"param_{len(bind_params)}"
         if filter.operator == FilterOperator.IS_EMPTY:
@@ -619,7 +625,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
                     Value -> '{filter.value}'"""
                 )
                 return ""
-            bind_params[param_name] = f'["{filter.value}"]'
+            bind_params[param_name] = json.dumps([filter.value])
             return f"({key})::jsonb {op} :{param_name} "
         if filter.operator == FilterOperator.TEXT_MATCH:
             bind_params[param_name] = f"%{filter.value}%"
@@ -700,12 +706,14 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             warnings.warn(f"Unknown operator: {operator}, fallback to '='")
             return "="
 
-    def __to_postgres_key(self, key: str) -> str:
+    def __to_postgres_key(self, key: str, bind_params: dict[str, Any]) -> str:
         if key in [
             *self._metadata_columns,
             self._id_column,
             self._ref_doc_id_column,
             self._text_column,
         ]:
-            return key
-        return f"{self._metadata_json_column}->>'{key}'"
+            return f'"{key}"'
+        key_param = f"key_{len(bind_params)}"
+        bind_params[key_param] = key
+        return f"{self._metadata_json_column}->>:{key_param}"

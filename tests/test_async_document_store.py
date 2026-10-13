@@ -452,3 +452,20 @@ class TestAsyncAlloyDBDocumentStore:
             doc_store.delete_ref_doc(ref_doc_id="test_doc_id", raise_error=False)
         with pytest.raises(Exception, match=sync_method_exception_str):
             doc_store.delete_ref_doc(ref_doc_id="test_doc_id", raise_error=True)
+
+    async def test_sql_injection_id_parameterization(self, doc_store):
+        doc = Document(text="safe_doc", id_="safe_doc_id", metadata={"doc": "info"})
+        await doc_store.async_add_documents([doc])
+
+        injected_id = "nonexistent' OR '1'='1"
+        assert await doc_store.adocument_exists(doc_id=injected_id) is False
+        assert (
+            await doc_store.aget_document(doc_id=injected_id, raise_error=False) is None
+        )
+        assert await doc_store.aget_document_hash(doc_id=injected_id) is None
+        assert await doc_store.aget_ref_doc_info(ref_doc_id=injected_id) is None
+        assert await doc_store.aref_doc_exists(ref_doc_id=injected_id) is False
+        await doc_store.adelete_document(doc_id=injected_id, raise_error=False)
+
+        assert await doc_store.adocument_exists(doc_id=doc.doc_id) is True
+        await doc_store.adelete_document(doc_id=doc.doc_id)

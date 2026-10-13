@@ -222,3 +222,19 @@ class TestAsyncAlloyDBChatStore:
 
         assert results[0]["message"] == message_2.model_dump()
         assert results[1]["message"] == message_3.model_dump()
+
+    async def test_sql_injection_key_parameterization(self, chat_store):
+        safe_key = "safe_chat_key"
+        safe_message = ChatMessage(content="Safe message", role="user")
+        await chat_store.aset_messages(safe_key, [safe_message])
+
+        injected_key = "nonexistent' OR '1'='1"
+        assert await chat_store.aget_messages(injected_key) == []
+        assert await chat_store.adelete_message(injected_key, 0) is None
+        assert await chat_store.adelete_last_message(injected_key) is None
+        assert await chat_store.adelete_messages(injected_key) is None
+
+        results = await chat_store.aget_messages(safe_key)
+        assert len(results) == 1
+        assert results[0].content == safe_message.content
+        await chat_store.adelete_messages(safe_key)
