@@ -8,3 +8,4 @@ This directory provides code samples to help you get started with LlamaIndex and
 | ------ | ----------- |
 | [Get Started: `AlloyDBVectorStore`](./llama_index_vector_store.ipynb) | This notebook goes over how to use AlloyDB to store vector embeddings with the `AlloyDBVectorStore` class. |
 | [Get Started: `AlloyDBDocumentStore` & `AlloyDBIndexStore`](./llama_index_doc_store.ipynb) | This notebook goes over how to use AlloyDB to store documents and indexes. |
+| [Rerank nodes: `AlloyDBRerank`](./alloydb_rerank.ipynb) | This notebook goes over how to rerank retrieved nodes with AlloyDB AI's ranking function using the `AlloyDBRerank` node postprocessor. |
