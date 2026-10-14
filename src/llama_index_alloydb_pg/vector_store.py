@@ -86,6 +86,8 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
         is_embedding_query: bool = True,
         distance_strategy: DistanceStrategy = DEFAULT_DISTANCE_STRATEGY,
         index_query_options: Optional[QueryOptions] = None,
+        hybrid_search_column: Optional[str] = None,
+        text_search_config: str = "english",
     ) -> AlloyDBVectorStore:
         """Create an AlloyDBVectorStore instance and validates the table schema.
 
@@ -104,6 +106,8 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
             is_embedding_query (bool): Whether the table query can have embeddings. Defaults to "True".
             distance_strategy (DistanceStrategy): Distance strategy to use for vector similarity search. Defaults to COSINE_DISTANCE.
             index_query_options (QueryOptions): Index query option.
+            hybrid_search_column (Optional[str]): Precomputed tsvector column used for text search and hybrid queries. Defaults to None, which computes to_tsvector over the text column at query time.
+            text_search_config (str): Postgres text search configuration used for text search and hybrid queries. Defaults to "english".
 
         Raises:
             Exception: If table does not exist or follow the provided structure.
@@ -126,6 +130,8 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
             is_embedding_query=is_embedding_query,
             distance_strategy=distance_strategy,
             index_query_options=index_query_options,
+            hybrid_search_column=hybrid_search_column,
+            text_search_config=text_search_config,
         )
         vs = await engine._run_as_async(coro)
         return cls(
@@ -153,6 +159,8 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
         is_embedding_query: bool = True,
         distance_strategy: DistanceStrategy = DEFAULT_DISTANCE_STRATEGY,
         index_query_options: Optional[QueryOptions] = None,
+        hybrid_search_column: Optional[str] = None,
+        text_search_config: str = "english",
     ) -> AlloyDBVectorStore:
         """Create an AlloyDBVectorStore instance and validates the table schema.
 
@@ -171,6 +179,8 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
             is_embedding_query (bool): Whether the table query can have embeddings. Defaults to "True".
             distance_strategy (DistanceStrategy): Distance strategy to use for vector similarity search. Defaults to COSINE_DISTANCE.
             index_query_options (QueryOptions): Index query option.
+            hybrid_search_column (Optional[str]): Precomputed tsvector column used for text search and hybrid queries. Defaults to None, which computes to_tsvector over the text column at query time.
+            text_search_config (str): Postgres text search configuration used for text search and hybrid queries. Defaults to "english".
 
         Raises:
             Exception: If table does not exist or follow the provided structure.
@@ -193,6 +203,8 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
             is_embedding_query=is_embedding_query,
             distance_strategy=distance_strategy,
             index_query_options=index_query_options,
+            hybrid_search_column=hybrid_search_column,
+            text_search_config=text_search_config,
         )
         vs = engine._run_as_sync(coro)
         return cls(
@@ -277,11 +289,17 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
     async def aquery(
         self, query: VectorStoreQuery, **kwargs: Any
     ) -> VectorStoreQueryResult:
-        """Asynchronously query vector store."""
+        """Asynchronously query vector store.
+
+        See ``AsyncAlloyDBVectorStore.aquery`` for the supported query modes.
+        """
         return await self._engine._run_as_async(self.__vs.aquery(query, **kwargs))
 
     def query(self, query: VectorStoreQuery, **kwargs: Any) -> VectorStoreQueryResult:
-        """Synchronously query vector store."""
+        """Synchronously query vector store.
+
+        See ``AsyncAlloyDBVectorStore.aquery`` for the supported query modes.
+        """
         return self._engine._run_as_sync(self.__vs.aquery(query, **kwargs))
 
     async def aset_maintenance_work_mem(

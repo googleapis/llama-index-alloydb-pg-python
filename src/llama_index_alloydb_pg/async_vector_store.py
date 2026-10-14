@@ -27,6 +27,7 @@ from llama_index.core.vector_stores.types import (
     MetadataFilter,
     MetadataFilters,
     VectorStoreQuery,
+    VectorStoreQueryMode,
     VectorStoreQueryResult,
 )
 from llama_index.core.vector_stores.utils import (
@@ -73,6 +74,8 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         is_embedding_query: bool = True,
         distance_strategy: DistanceStrategy = DEFAULT_DISTANCE_STRATEGY,
         index_query_options: Optional[QueryOptions] = None,
+        hybrid_search_column: Optional[str] = None,
+        text_search_config: str = "english",
     ):
         """AsyncAlloyDBVectorStore constructor.
         Args:
@@ -91,6 +94,8 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             is_embedding_query (bool): Whether the table query can have embeddings. Defaults to "True".
             distance_strategy (DistanceStrategy): Distance strategy to use for vector similarity search. Defaults to COSINE_DISTANCE.
             index_query_options (QueryOptions): Index query option.
+            hybrid_search_column (Optional[str]): Precomputed tsvector column used for text search and hybrid queries. Defaults to None, which computes to_tsvector over the text column at query time.
+            text_search_config (str): Postgres text search configuration used for text search and hybrid queries. Defaults to "english".
 
 
         Raises:
@@ -113,6 +118,8 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         self._node_column = node_column
         self._distance_strategy = distance_strategy
         self._index_query_options = index_query_options
+        self._hybrid_search_column = hybrid_search_column
+        self._text_search_config = text_search_config
 
     @classmethod
     async def create(
@@ -131,6 +138,8 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         is_embedding_query: bool = True,
         distance_strategy: DistanceStrategy = DEFAULT_DISTANCE_STRATEGY,
         index_query_options: Optional[QueryOptions] = None,
+        hybrid_search_column: Optional[str] = None,
+        text_search_config: str = "english",
     ) -> AsyncAlloyDBVectorStore:
         """Create an AsyncAlloyDBVectorStore instance and validates the table schema.
 
@@ -149,6 +158,8 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             is_embedding_query (bool): Whether the table query can have embeddings. Defaults to "True".
             distance_strategy (DistanceStrategy): Distance strategy to use for vector similarity search. Defaults to COSINE_DISTANCE.
             index_query_options (QueryOptions): Index query option.
+            hybrid_search_column (Optional[str]): Precomputed tsvector column used for text search and hybrid queries. Defaults to None, which computes to_tsvector over the text column at query time.
+            text_search_config (str): Postgres text search configuration used for text search and hybrid queries. Defaults to "english".
 
         Raises:
             Exception: If table does not exist or follow the provided structure.
@@ -202,6 +213,15 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         for column in metadata_columns:
             if column not in columns:
                 raise ValueError(f"Metadata column, {column}, does not exist.")
+        if hybrid_search_column is not None:
+            if hybrid_search_column not in columns:
+                raise ValueError(
+                    f"Hybrid search column, {hybrid_search_column}, does not exist."
+                )
+            if columns[hybrid_search_column] != "tsvector":
+                raise ValueError(
+                    f"Hybrid search column, {hybrid_search_column}, is not type tsvector."
+                )
 
         return cls(
             cls.__create_key,
@@ -219,6 +239,8 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             is_embedding_query=is_embedding_query,
             distance_strategy=distance_strategy,
             index_query_options=index_query_options,
+            hybrid_search_column=hybrid_search_column,
+            text_search_config=text_search_config,
         )
 
     @classmethod
@@ -342,7 +364,34 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
     async def aquery(
         self, query: VectorStoreQuery, **kwargs: Any
     ) -> VectorStoreQueryResult:
-        """Asynchronously query vector store."""
+        """Asynchronously query vector store.
+
+        The query mode selects the search:
+
+        * ``DEFAULT``: vector similarity search. Similarities are the distances
+          returned by the distance strategy.
+        * ``TEXT_SEARCH`` and ``SPARSE``: full-text search on ``query_str``, limited
+          to ``sparse_top_k`` (or ``similarity_top_k``). Similarities are ``ts_rank``
+          scores, higher is better.
+        * ``HYBRID``: fuses the vector and full-text rankings with weighted
+          reciprocal rank fusion, ``alpha / (60 + dense_rank) + (1 - alpha) / (60 + text_rank)``.
+          ``alpha`` defaults to 0.5. Each side keeps its ``similarity_top_k`` and
+          ``sparse_top_k`` best rows and the result is limited to ``hybrid_top_k``
+          (or ``similarity_top_k``). Similarities are the fused scores, higher is better.
+
+        Any other mode runs the ``DEFAULT`` search.
+
+        Args:
+            query (VectorStoreQuery): The query to run.
+
+        Returns:
+            VectorStoreQueryResult: The matching nodes, ids and similarities.
+
+        Raises:
+            ValueError: If ``query_str`` is blank for a text search or hybrid query,
+                ``query_embedding`` is missing for a hybrid query, or ``alpha`` is
+                not between 0 and 1.
+        """
         results = await self.__query_columns(query)
         nodes = []
         ids = []
@@ -361,6 +410,8 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             ids.append(row[self._id_column])
             if "distance" in row:
                 similarities.append(row["distance"])
+            elif "score" in row:
+                similarities.append(row["score"])
         return VectorStoreQueryResult(nodes=nodes, similarities=similarities, ids=ids)
 
     def add(self, nodes: Sequence[BaseNode], **add_kwargs: Any) -> list[str]:
@@ -518,16 +569,15 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             filters.append(query.filters)
 
         # Note:
-        # Hybrid search is not yet supported, so following fields in `query` are ignored:
-        #     query_str, mode, alpha, mmr_threshold, sparse_top_k, hybrid_top_k
+        # mmr_threshold is ignored, and modes other than TEXT_SEARCH, SPARSE and HYBRID run the default search.
         # Vectors are already stored `self._embedding_column` so a custom embedding_field is ignored.
         query_filters = MetadataFilters(filters=filters, condition=FilterCondition.AND)
 
         bind_params: dict[str, Any] = {}
-        filters_stmt = self.__parse_metadata_filters_recursively(
+        filters_clause = self.__parse_metadata_filters_recursively(
             query_filters, bind_params
         )
-        filters_stmt = f"WHERE {filters_stmt}" if filters_stmt else ""
+        filters_stmt = f"WHERE {filters_clause}" if filters_clause else ""
         operator = self._distance_strategy.operator
         search_function = self._distance_strategy.search_function
 
@@ -559,7 +609,20 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
 
         column_names = ", ".join(f'"{col}"' for col in columns)
 
-        query_stmt = f'SELECT {column_names} {scoring_stmt} FROM "{self._schema_name}"."{self._table_name}" {filters_stmt} {order_stmt} {limit_stmt}'
+        if query.mode in (
+            VectorStoreQueryMode.TEXT_SEARCH,
+            VectorStoreQueryMode.SPARSE,
+        ):
+            rank, match = self.__text_search_rank(query, bind_params)
+            where = f"{match} AND ({filters_clause})" if filters_clause else match
+            text_limit = self.__limit(query.sparse_top_k or query.similarity_top_k)
+            query_stmt = f'SELECT {column_names}, {rank} AS score FROM "{self._schema_name}"."{self._table_name}" WHERE {where} ORDER BY score DESC {text_limit}'
+        elif query.mode == VectorStoreQueryMode.HYBRID:
+            query_stmt = self.__hybrid_search_stmt(
+                query, columns, filters_clause, bind_params
+            )
+        else:
+            query_stmt = f'SELECT {column_names} {scoring_stmt} FROM "{self._schema_name}"."{self._table_name}" {filters_stmt} {order_stmt} {limit_stmt}'
         async with self._engine.connect() as conn:
             if self._index_query_options:
                 # Set each query option individually
@@ -570,6 +633,89 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             result_map = result.mappings()
             results = result_map.fetchall()
         return results
+
+    def __limit(self, top_k: int) -> str:
+        """Returns a LIMIT clause, or no limit when top_k is less than 1."""
+        return f"LIMIT {top_k}" if top_k >= 1 else ""
+
+    def __text_search_rank(
+        self, query: VectorStoreQuery, bind_params: dict[str, Any]
+    ) -> tuple[str, str]:
+        """Builds the full-text rank expression and match predicate for a query.
+
+        Args:
+            query (VectorStoreQuery): The query, with ``query_str`` as the search text.
+            bind_params (dict[str, Any]): Bind parameters, updated in place.
+
+        Returns:
+            tuple[str, str]: The ``ts_rank`` expression and the ``@@`` predicate.
+
+        Raises:
+            ValueError: If ``query_str`` is blank.
+        """
+        if not query.query_str or not query.query_str.strip():
+            raise ValueError(f"query_str is required for {query.mode.value} queries.")
+        bind_params["query_str"] = query.query_str
+        bind_params["text_search_config"] = self._text_search_config
+        config = "CAST(:text_search_config AS regconfig)"
+        tsquery = f"websearch_to_tsquery({config}, :query_str)"
+        if self._hybrid_search_column:
+            tsvector = f'"{self._hybrid_search_column}"'
+        else:
+            tsvector = f'to_tsvector({config}, "{self._text_column}")'
+        return f"ts_rank({tsvector}, {tsquery})", f"{tsvector} @@ {tsquery}"
+
+    def __hybrid_search_stmt(
+        self,
+        query: VectorStoreQuery,
+        columns: list[str],
+        filters_clause: str,
+        bind_params: dict[str, Any],
+    ) -> str:
+        """Builds a query that fuses vector and full-text rankings with weighted RRF.
+
+        Args:
+            query (VectorStoreQuery): The query, with ``query_embedding`` and ``query_str``.
+            columns (list[str]): Columns to return.
+            filters_clause (str): Metadata filter condition applied to both rankings.
+            bind_params (dict[str, Any]): Bind parameters, updated in place.
+
+        Returns:
+            str: The SQL statement.
+
+        Raises:
+            ValueError: If ``query_embedding`` is missing, ``query_str`` is blank, or
+                ``alpha`` is not between 0 and 1.
+        """
+        if not query.query_embedding:
+            raise ValueError("query_embedding is required for hybrid queries.")
+        alpha = 0.5 if query.alpha is None else query.alpha
+        if not 0 <= alpha <= 1:
+            raise ValueError(f"alpha must be between 0 and 1, got {alpha}.")
+        rank, match = self.__text_search_rank(query, bind_params)
+        bind_params["alpha"] = alpha
+        table = f'"{self._schema_name}"."{self._table_name}"'
+        id_column = f'"{self._id_column}"'
+        distance = f'"{self._embedding_column}" {self._distance_strategy.operator} :query_embedding'
+        dense_where = f"WHERE {filters_clause}" if filters_clause else ""
+        text_where = f"{match} AND ({filters_clause})" if filters_clause else match
+        dense_limit = self.__limit(query.similarity_top_k)
+        text_limit = self.__limit(query.sparse_top_k or query.similarity_top_k)
+        hybrid_limit = self.__limit(query.hybrid_top_k or query.similarity_top_k)
+        column_names = ", ".join(f't."{col}"' for col in columns)
+        return f"""WITH dense AS (
+                SELECT {id_column} AS id, ROW_NUMBER() OVER (ORDER BY {distance}) AS r
+                FROM {table} {dense_where} ORDER BY {distance} {dense_limit}
+            ), sparse AS (
+                SELECT {id_column} AS id, ROW_NUMBER() OVER (ORDER BY {rank} DESC) AS r
+                FROM {table} WHERE {text_where} ORDER BY {rank} DESC {text_limit}
+            )
+            SELECT {column_names},
+                COALESCE(CAST(:alpha AS FLOAT) / (60 + dense.r), 0)
+                + COALESCE((1 - CAST(:alpha AS FLOAT)) / (60 + sparse.r), 0) AS score
+            FROM dense FULL OUTER JOIN sparse ON dense.id = sparse.id
+            JOIN {table} t ON t.{id_column} = COALESCE(dense.id, sparse.id)
+            ORDER BY score DESC {hybrid_limit}"""
 
     def __parse_metadata_filters_recursively(
         self, metadata_filters: MetadataFilters, bind_params: dict[str, Any]
