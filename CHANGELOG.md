@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/googleapis/llama-index-alloydb-pg-python/compare/v0.3.1...v0.3.2) (2026-10-14)
+
+
+### Bug Fixes
+
+* Parameterize SQL query values and metadata filter keys across stores ([#241](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/241)) ([27e8b53](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/27e8b53d034c232b3747ec1902a73254da3ed5c9))
+
 ## [0.3.1](https://github.com/googleapis/llama-index-alloydb-pg-python/compare/v0.3.0...v0.3.1) (2026-08-04)
 
 
