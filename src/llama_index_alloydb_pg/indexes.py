@@ -40,9 +40,11 @@ DEFAULT_INDEX_NAME_SUFFIX: str = "li_vectorindex"
 
 # ScaNN index modes, from https://cloud.google.com/alloydb/docs/ai/create-scann-index
 _SCANN_MODES = ("AUTO", "MANUAL")
-# Bounds of the scann.pct_leaves_to_search percentage, from
+# Lower bound of the scann.pct_leaves_to_search percentage, from
 # https://cloud.google.com/alloydb/docs/reference/ai/scann-index-reference
 _MIN_PCT_LEAVES_TO_SEARCH = 0
+# Upper bound of the scann.pct_leaves_to_search percentage, from
+# https://cloud.google.com/alloydb/docs/reference/ai/scann-index-reference
 _MAX_PCT_LEAVES_TO_SEARCH = 100
 
 
