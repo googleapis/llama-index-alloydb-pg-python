@@ -183,9 +183,9 @@ class AlloyDBModelManager:
     async def acreate_model(
         self,
         model_id: str,
+        *,
         model_provider: str,
         model_type: str,
-        *,
         model_qualified_name: Optional[str] = None,
         model_request_url: Optional[str] = None,
         model_auth_type: Optional[str] = None,
@@ -231,9 +231,9 @@ class AlloyDBModelManager:
     def create_model(
         self,
         model_id: str,
+        *,
         model_provider: str,
         model_type: str,
-        *,
         model_qualified_name: Optional[str] = None,
         model_request_url: Optional[str] = None,
         model_auth_type: Optional[str] = None,

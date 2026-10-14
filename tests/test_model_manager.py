@@ -47,7 +47,7 @@ def new_model_id() -> str:
 
 
 async def askip_unless_model_support(engine: AlloyDBEngine) -> None:
-    async def run() -> str:
+    async def run():
         async with engine._pool.connect() as conn:
             query = text("SELECT current_setting(:flag, true)")
             return (await conn.execute(query, {"flag": MODEL_SUPPORT_FLAG})).scalar()
@@ -125,12 +125,11 @@ class TestAlloyDBModelManagerAsync:
         finally:
             await manager.adrop_model(model_id)
 
-    @pytest.mark.parametrize(
-        "args", [("", "google", "llm"), ("m", "", "llm"), ("m", "google", "")]
-    )
-    async def test_acreate_model_blank_argument(self, manager, args):
-        with pytest.raises(ValueError, match="must be a non-empty string"):
-            await manager.acreate_model(*args)
+    @pytest.mark.parametrize("blank", ["model_id", "model_provider", "model_type"])
+    async def test_acreate_model_blank_argument(self, manager, blank):
+        args = dict(EMBEDDING_MODEL, model_id=new_model_id(), **{blank: ""})
+        with pytest.raises(ValueError, match=f"{blank} must be a non-empty string"):
+            await manager.acreate_model(**args)
 
 
 @pytest.mark.asyncio(loop_scope="class")
