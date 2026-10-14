@@ -127,7 +127,8 @@ class TestAlloyDBModelManagerAsync:
 
     @pytest.mark.parametrize("blank", ["model_id", "model_provider", "model_type"])
     async def test_acreate_model_blank_argument(self, manager, blank):
-        args = dict(EMBEDDING_MODEL, model_id=new_model_id(), **{blank: ""})
+        args = dict(EMBEDDING_MODEL, model_id=new_model_id())
+        args[blank] = ""
         with pytest.raises(ValueError, match=f"{blank} must be a non-empty string"):
             await manager.acreate_model(**args)
 
