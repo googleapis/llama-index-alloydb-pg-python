@@ -181,7 +181,8 @@ class ScaNNIndex(BaseIndex):
             index parameters, so ``num_leaves`` and ``quantizer`` are not sent.
             ``"MANUAL"`` sends ``num_leaves`` and ``quantizer`` explicitly.
             Case-insensitive. Defaults to ``None``, which emits the same index
-            options as previous releases.
+            options as previous releases. ``"AUTO"`` needs at least 10,000 rows
+            in the table, otherwise AlloyDB defers the index build.
 
     Raises:
         ValueError: If ``mode`` is not ``"AUTO"`` or ``"MANUAL"``.

@@ -206,10 +206,35 @@ class TestIndex:
         )
         assert len(results) == 1
         assert "USING scann" in results[0]["indexdef"]
-        assert results[0]["indexdef"].endswith("WITH (mode='AUTO')")
+        assert "mode='AUTO'" in results[0]["indexdef"]
         await vs.adrop_vector_index(DEFAULT_INDEX_NAME)
 
-    async def test_aquery_scann_pct_leaves(self, vs_scann):
+        index = ScaNNIndex(num_leaves=1, mode="manual")
+        await vs.aapply_vector_index(index)
+        assert await vs.is_valid_index(DEFAULT_INDEX_NAME)
+        results = await afetch(
+            engine,
+            "SELECT indexdef FROM pg_indexes WHERE indexname = :name",
+            {"name": DEFAULT_INDEX_NAME},
+        )
+        assert "mode='MANUAL'" in results[0]["indexdef"]
+        await vs.adrop_vector_index(DEFAULT_INDEX_NAME)
+
+    async def test_aquery_scann_pct_leaves(self, engine, vs_scann):
+        # The server accepts every SET LOCAL statement the options produce,
+        # and the session reports the percentage.
+        options = ScaNNQueryOptions(pct_leaves_to_search=100)
+        async with engine._pool.connect() as conn:
+            for parameter in options.to_parameter():
+                await conn.execute(text(f"SET LOCAL {parameter}"))
+            result = await conn.execute(
+                text("SELECT current_setting('scann.pct_leaves_to_search') AS pct")
+            )
+            assert result.mappings().fetchone()["pct"] == "100"
+            await conn.rollback()
+
+        # A store query with the same options on an AUTO-indexed table returns
+        # the expected nearest rows.
         await vs_scann.aapply_vector_index(ScaNNIndex(mode="AUTO"))
         assert await vs_scann.is_valid_index(SCANN_TABLE + DEFAULT_INDEX_NAME_SUFFIX)
         query = VectorStoreQuery(
