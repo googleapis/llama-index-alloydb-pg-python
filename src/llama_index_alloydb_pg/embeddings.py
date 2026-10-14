@@ -40,7 +40,9 @@ class AlloyDBEmbedding(BaseEmbedding):
     function, so ``model_id`` must be a model registered with model endpoint
     management, for example ``text-embedding-005``. Each batch of texts is
     embedded in one database round trip, and ``embed_batch_size`` controls the
-    batch size.
+    batch size. The async batch methods run the batches concurrently, each on
+    its own pool connection, so use ``num_workers``, ``embed_batch_size`` or the
+    engine's pool size to limit the load on the database.
 
     The async methods work with any engine. The sync methods run on the
     engine's background event loop, so they need an engine that has one, for
