@@ -113,8 +113,7 @@ class AlloyDBModelManager:
             row = result.mappings().one()
         if not row["installed"]:
             raise ValueError(
-                "The google_ml_integration extension is not installed. Install "
-                "it in this database to use model endpoint management."
+                "Install the google_ml_integration extension to use model endpoints."
             )
         if row["model_support"] != "on":
             raise ValueError(
@@ -194,9 +193,7 @@ class AlloyDBModelManager:
         model_in_transform_fn: Optional[str] = None,
         model_out_transform_fn: Optional[str] = None,
     ) -> None:
-        """Register a model endpoint.
-
-        Arguments left as None are not passed, so the server defaults apply.
+        """Register a model endpoint. Arguments left as None use server defaults.
 
         Args:
             model_id (str): A unique ID for the model endpoint.
@@ -276,5 +273,5 @@ class AlloyDBModelManager:
         await self._engine._run_as_async(self.__adrop_model(model_id))
 
     def drop_model(self, model_id: str) -> None:
-        """Synchronously drop a registered model endpoint."""
+        """Synchronously drop a registered model endpoint. See `adrop_model`."""
         self._engine._run_as_sync(self.__adrop_model(model_id))

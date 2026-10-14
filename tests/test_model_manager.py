@@ -49,11 +49,16 @@ def new_model_id() -> str:
 async def askip_unless_model_support(engine: AlloyDBEngine) -> None:
     async def run():
         async with engine._pool.connect() as conn:
-            query = text("SELECT current_setting(:flag, true)")
-            return (await conn.execute(query, {"flag": MODEL_SUPPORT_FLAG})).scalar()
+            query = text(
+                "SELECT current_setting(:flag, true) AS flag, EXISTS (SELECT 1 FROM "
+                "pg_extension WHERE extname = 'google_ml_integration') AS installed"
+            )
+            result = await conn.execute(query, {"flag": MODEL_SUPPORT_FLAG})
+            return result.mappings().one()
 
-    if await engine._run_as_async(run()) != "on":
-        pytest.skip("google_ml_integration.enable_model_support is off")
+    row = await engine._run_as_async(run())
+    if not row["installed"] or row["flag"] != "on":
+        pytest.skip(f"needs google_ml_integration and {MODEL_SUPPORT_FLAG}=on")
 
 
 @pytest.fixture(scope="module")
@@ -88,11 +93,9 @@ class TestAlloyDBModelManagerAsync:
 
     async def test_acreate_get_drop_model(self, manager, engine_args):
         model_id = new_model_id()
-        expected = dict(
-            EMBEDDING_MODEL,
-            model_request_url=REQUEST_URL.format(**engine_args),
-            model_auth_type="alloydb_service_agent_iam",
-        )
+        url = REQUEST_URL.format(**engine_args)
+        auth = "alloydb_service_agent_iam"
+        expected = dict(EMBEDDING_MODEL, model_request_url=url, model_auth_type=auth)
         try:
             await manager.acreate_model(model_id, **expected)
             model = await manager.aget_model(model_id)
