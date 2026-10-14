@@ -138,6 +138,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         is_embedding_query: bool = True,
         distance_strategy: DistanceStrategy = DEFAULT_DISTANCE_STRATEGY,
         index_query_options: Optional[QueryOptions] = None,
+        *,
         hybrid_search_column: Optional[str] = None,
         text_search_config: str = "english",
     ) -> AsyncAlloyDBVectorStore:
@@ -408,10 +409,14 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
                 )
             nodes.append(node)
             ids.append(row[self._id_column])
-            if "distance" in row:
+            if query.mode in (
+                VectorStoreQueryMode.TEXT_SEARCH,
+                VectorStoreQueryMode.SPARSE,
+                VectorStoreQueryMode.HYBRID,
+            ):
+                similarities.append(row["__li_score"])
+            elif "distance" in row:
                 similarities.append(row["distance"])
-            elif "score" in row:
-                similarities.append(row["score"])
         return VectorStoreQueryResult(nodes=nodes, similarities=similarities, ids=ids)
 
     def add(self, nodes: Sequence[BaseNode], **add_kwargs: Any) -> list[str]:
@@ -616,7 +621,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             rank, match = self.__text_search_rank(query, bind_params)
             where = f"{match} AND ({filters_clause})" if filters_clause else match
             text_limit = self.__limit(query.sparse_top_k or query.similarity_top_k)
-            query_stmt = f'SELECT {column_names}, {rank} AS score FROM "{self._schema_name}"."{self._table_name}" WHERE {where} ORDER BY score DESC {text_limit}'
+            query_stmt = f'SELECT {column_names}, {rank} AS __li_score FROM "{self._schema_name}"."{self._table_name}" WHERE {where} ORDER BY __li_score DESC {text_limit}'
         elif query.mode == VectorStoreQueryMode.HYBRID:
             query_stmt = self.__hybrid_search_stmt(
                 query, columns, filters_clause, bind_params
@@ -712,10 +717,10 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
             )
             SELECT {column_names},
                 COALESCE(CAST(:alpha AS FLOAT) / (60 + dense.r), 0)
-                + COALESCE((1 - CAST(:alpha AS FLOAT)) / (60 + sparse.r), 0) AS score
+                + COALESCE((1 - CAST(:alpha AS FLOAT)) / (60 + sparse.r), 0) AS __li_score
             FROM dense FULL OUTER JOIN sparse ON dense.id = sparse.id
             JOIN {table} t ON t.{id_column} = COALESCE(dense.id, sparse.id)
-            ORDER BY score DESC {hybrid_limit}"""
+            ORDER BY __li_score DESC {hybrid_limit}"""
 
     def __parse_metadata_filters_recursively(
         self, metadata_filters: MetadataFilters, bind_params: dict[str, Any]

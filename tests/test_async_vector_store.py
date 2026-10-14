@@ -56,7 +56,9 @@ for node in nodes:
 # Cosine distances to [1, 0, 0]: b 0, a 0.2, d 0.5, c 1.
 # Text matches for "database": c (twice) ranks above a.
 hybrid_nodes = [
-    TextNode(id_=id_, text=text_, embedding=emb, metadata={"lang": lang})
+    TextNode(
+        id_=id_, text=text_, embedding=emb, metadata={"lang": lang, "score": 100.0}
+    )
     for id_, text_, emb, lang in [
         ("a", "postgres database", [0.8, 0.6, 0.0], "en"),
         ("b", "vector search engine", [1.0, 0.0, 0.0], "en"),
@@ -517,8 +519,16 @@ class TestVectorStore:
 
     @pytest_asyncio.fixture(scope="class")
     async def hybrid_vs(self, engine):
-        await engine._ainit_vector_store_table(HYBRID_TABLE, 3, overwrite_existing=True)
-        vs = await AsyncAlloyDBVectorStore.create(engine, table_name=HYBRID_TABLE)
+        # A metadata column named "score" must not clash with the search score.
+        await engine._ainit_vector_store_table(
+            HYBRID_TABLE,
+            3,
+            overwrite_existing=True,
+            metadata_columns=[Column(name="score", data_type="FLOAT", nullable=True)],
+        )
+        vs = await AsyncAlloyDBVectorStore.create(
+            engine, table_name=HYBRID_TABLE, metadata_columns=["score"]
+        )
         await vs.async_add(hybrid_nodes)
         yield vs
         await aexecute(engine, f'DROP TABLE IF EXISTS "{HYBRID_TABLE}"')
@@ -546,29 +556,33 @@ class TestVectorStore:
         assert results.ids == ["c"]
 
     async def test_aquery_text_search_with_tsvector_column(self, engine, hybrid_vs):
+        # The column stems with english while queries use simple, so only the
+        # column turns "tuning" into "tune".
         await aexecute(
             engine,
             f"""ALTER TABLE "{HYBRID_TABLE}" ADD COLUMN IF NOT EXISTS tsv tsvector
             GENERATED ALWAYS AS (to_tsvector('english', text)) STORED""",
         )
+        query = VectorStoreQuery(
+            query_str="tune", mode=VectorStoreQueryMode.TEXT_SEARCH, similarity_top_k=4
+        )
+        fallback_vs = await AsyncAlloyDBVectorStore.create(
+            engine, table_name=HYBRID_TABLE, text_search_config="simple"
+        )
+        assert (await fallback_vs.aquery(query)).ids == []
+
         vs = await AsyncAlloyDBVectorStore.create(
             engine,
             table_name=HYBRID_TABLE,
             hybrid_search_column="tsv",
-            text_search_config="english",
+            text_search_config="simple",
         )
-        query = VectorStoreQuery(
-            query_str="databases",
-            mode=VectorStoreQueryMode.TEXT_SEARCH,
-            similarity_top_k=4,
-        )
-        results = await vs.aquery(query)
-        assert results.ids == ["c", "a"]
+        assert (await vs.aquery(query)).ids == ["c"]
 
         query.query_embedding = [1.0, 0.0, 0.0]
         query.mode = VectorStoreQueryMode.HYBRID
         results = await vs.aquery(query)
-        assert results.ids == ["a", "c", "b", "d"]
+        assert results.ids == ["c", "b", "a", "d"]
 
     async def test_create_with_invalid_hybrid_search_column(self, engine, hybrid_vs):
         with pytest.raises(ValueError, match="Hybrid search column, missing, does not"):
@@ -638,3 +652,21 @@ class TestVectorStore:
                     alpha=1.5,
                 )
             )
+
+    async def test_aquery_with_score_metadata_column(self, hybrid_vs):
+        query = VectorStoreQuery(
+            query_embedding=[1.0, 0.0, 0.0],
+            query_str="database",
+            mode=VectorStoreQueryMode.TEXT_SEARCH,
+            similarity_top_k=4,
+        )
+        results = await hybrid_vs.aquery(query)
+        assert results.ids == ["c", "a"]
+        assert results.nodes[0].metadata["score"] == 100.0
+        assert all(0 < s < 1 for s in results.similarities)
+
+        query.mode = VectorStoreQueryMode.HYBRID
+        results = await hybrid_vs.aquery(query)
+        assert results.ids == ["a", "c", "b", "d"]
+        assert results.nodes[0].metadata["score"] == 100.0
+        assert results.similarities[0] == pytest.approx(1 / 62)

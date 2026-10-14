@@ -86,6 +86,7 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
         is_embedding_query: bool = True,
         distance_strategy: DistanceStrategy = DEFAULT_DISTANCE_STRATEGY,
         index_query_options: Optional[QueryOptions] = None,
+        *,
         hybrid_search_column: Optional[str] = None,
         text_search_config: str = "english",
     ) -> AlloyDBVectorStore:
@@ -159,6 +160,7 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
         is_embedding_query: bool = True,
         distance_strategy: DistanceStrategy = DEFAULT_DISTANCE_STRATEGY,
         index_query_options: Optional[QueryOptions] = None,
+        *,
         hybrid_search_column: Optional[str] = None,
         text_search_config: str = "english",
     ) -> AlloyDBVectorStore:
