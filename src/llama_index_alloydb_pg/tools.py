@@ -138,7 +138,7 @@ class AlloyDBToolSpec(BaseToolSpec):
         """
         return await self._engine._run_as_async(self.__aanalyze_sentiment(text))
 
-    def summarize(self, text: str, instructions: Optional[str] = None) -> str:
+    def summarize(self, text: str, *, instructions: Optional[str] = None) -> str:
         """Summarize a text, such as an article or a set of reviews.
 
         Args:
@@ -154,7 +154,7 @@ class AlloyDBToolSpec(BaseToolSpec):
         """
         return self._engine._run_as_sync(self.__asummarize(text, instructions))
 
-    async def asummarize(self, text: str, instructions: Optional[str] = None) -> str:
+    async def asummarize(self, text: str, *, instructions: Optional[str] = None) -> str:
         """Summarize a text, such as an article or a set of reviews.
 
         Args:

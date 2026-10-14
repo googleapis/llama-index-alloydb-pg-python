@@ -153,7 +153,7 @@ class TestAlloyDBToolSpecAsync:
 
     async def test_asummarize(self, tool_spec):
         assert "AlloyDB" in await tool_spec.asummarize(ARTICLE)
-        summary = await tool_spec.asummarize(ARTICLE, SHORT_UPPERCASE)
+        summary = await tool_spec.asummarize(ARTICLE, instructions=SHORT_UPPERCASE)
         check_short_uppercase_summary(summary)
 
     async def test_aevaluate_condition(self, tool_spec):
@@ -198,7 +198,7 @@ class TestAlloyDBToolSpecAsync:
         with pytest.raises(ValueError, match="google_ml.analyze_sentiment returned"):
             await tool_spec.aanalyze_sentiment(POSITIVE_TEXT)
         with pytest.raises(ValueError, match="google_ml.summarize returned NULL"):
-            await tool_spec.asummarize(ARTICLE, SHORT_UPPERCASE)
+            await tool_spec.asummarize(ARTICLE, instructions=SHORT_UPPERCASE)
         with pytest.raises(ValueError, match="google_ml.if returned NULL"):
             await tool_spec.aevaluate_condition(TRUE_CONDITION)
 
