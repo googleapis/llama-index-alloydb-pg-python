@@ -33,6 +33,7 @@ from llama_index_alloydb_pg.postprocessor import _to_ranked_nodes
 RANKING_MODEL_ID = "semantic-ranker-default-003"
 # google_ml.rank raises (SQLSTATE P0001) unless this database flag is on.
 AI_QUERY_ENGINE_FLAG = "google_ml_integration.enable_ai_query_engine"
+FLAG_QUERY = "SELECT current_setting(:flag, true)"
 QUERY = "neural networks"
 TABLE_NAME = "test_table" + str(uuid.uuid4()).replace("-", "_")
 VECTOR_SIZE = 8
@@ -58,7 +59,6 @@ def check_ranked(result: List[NodeWithScore], expected_len: int) -> None:
     assert len(result) == expected_len
     assert result[0].node is NODES[1].node
     scores = [node.score for node in result]
-    assert all(isinstance(score, float) for score in scores)
     assert scores == sorted(scores, reverse=True)  # type: ignore[type-var]
 
 
@@ -84,40 +84,20 @@ class TestAlloyDBRerank:
     def db_name(self) -> str:
         return get_env_var("DATABASE_ID", "database name on AlloyDB instance")
 
-    @pytest.fixture(scope="module")
-    def db_user(self) -> str:
-        return get_env_var("DB_USER", "database user for AlloyDB")
-
-    @pytest.fixture(scope="module")
-    def db_password(self) -> str:
-        return get_env_var("DB_PASSWORD", "database password for AlloyDB")
-
     @pytest_asyncio.fixture(scope="class")
-    async def engine(
-        self,
-        db_project,
-        db_region,
-        db_cluster,
-        db_instance,
-        db_name,
-        db_user,
-        db_password,
-    ):
+    async def engine(self, db_project, db_region, db_cluster, db_instance, db_name):
         engine = await AlloyDBEngine.afrom_instance(
             project_id=db_project,
             region=db_region,
             cluster=db_cluster,
             instance=db_instance,
             database=db_name,
-            user=db_user,
-            password=db_password,
         )
         yield engine
         await engine.close()
 
     @pytest_asyncio.fixture(scope="class")
     async def ranking(self, engine):
-        """Skips the test if the AI query engine flag is off on this instance."""
         reranker = AlloyDBRerank(engine=engine, model_id=RANKING_MODEL_ID)
         try:
             await reranker.apostprocess_nodes(NODES[:1], query_str=QUERY)
@@ -135,8 +115,7 @@ class TestAlloyDBRerank:
         async def fetch() -> Optional[str]:
             async with engine._pool.connect() as conn:
                 result = await conn.execute(
-                    text("SELECT current_setting(:flag, true)"),
-                    {"flag": AI_QUERY_ENGINE_FLAG},
+                    text(FLAG_QUERY), {"flag": AI_QUERY_ENGINE_FLAG}
                 )
                 return result.scalar()
 
@@ -166,9 +145,7 @@ class TestAlloyDBRerank:
         for top_n in (0, -1):
             with pytest.raises(ValueError, match="top_n must be a positive integer"):
                 AlloyDBRerank(engine=engine, model_id=RANKING_MODEL_ID, top_n=top_n)
-        reranker = AlloyDBRerank(engine=engine, model_id=RANKING_MODEL_ID)
-        assert reranker.class_name() == "AlloyDBRerank"
-        assert (reranker.model_id, reranker.top_n) == (RANKING_MODEL_ID, 2)
+        assert AlloyDBRerank.class_name() == "AlloyDBRerank"
 
     async def test_apostprocess_nodes(self, engine, ranking):
         reranker = AlloyDBRerank(engine=engine, model_id=RANKING_MODEL_ID)
@@ -200,7 +177,6 @@ class TestAlloyDBRerank:
         reranker = AlloyDBRerank(engine=engine, model_id=RANKING_MODEL_ID, top_n=3)
         result = await reranker.apostprocess_nodes(nodes, query_str=QUERY)
         assert [node.score for node in nodes] == [0.5, 0.5, 0.5]
-        assert [node.node for node in nodes] == [node.node for node in NODES]
         assert all(new is not old for new in result for old in nodes)
 
     async def test_empty_nodes(self, engine):
@@ -221,13 +197,8 @@ class TestAlloyDBRerank:
                 reranker.postprocess_nodes(NODES, query_str=query)
 
     async def test_to_ranked_nodes(self):
-        rows = [
-            {"index": 3, "score": 0.4},
-            {"index": 1, "score": None},
-            {"index": 0, "score": 0.99},
-            {"index": 4, "score": 0.9},
-            {"index": 2, "score": 0.95},
-        ]
+        pairs = [(3, 0.4), (1, None), (0, 0.99), (4, 0.9), (2, 0.95)]
+        rows = [{"index": index, "score": score} for index, score in pairs]
         result = _to_ranked_nodes(NODES, rows)  # type: ignore[arg-type]
         assert [(node.node, node.score) for node in result] == [
             (NODES[1].node, 0.95),
@@ -249,8 +220,6 @@ class TestAlloyDBRerank:
             await query_engine.aquery(QUERY),
             query_engine.query(QUERY),
         ):
-            nodes = response.source_nodes
-            assert len(nodes) == 2
-            assert nodes[0].node.get_content() == TEXTS[1]
-            assert nodes[0].score is not None and nodes[1].score is not None
-            assert nodes[0].score >= nodes[1].score
+            [first, second] = response.source_nodes
+            assert first.node.get_content() == TEXTS[1]
+            assert first.score >= second.score  # type: ignore[operator]

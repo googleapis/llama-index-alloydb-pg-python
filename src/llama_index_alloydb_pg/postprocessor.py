@@ -16,6 +16,7 @@ from typing import Any, List, Optional, Sequence
 
 from llama_index.core.bridge.pydantic import Field, PrivateAttr
 from llama_index.core.callbacks import CBEventType, EventPayload
+from llama_index.core.callbacks.base import EventContext
 from llama_index.core.instrumentation import get_dispatcher
 from llama_index.core.instrumentation.events.rerank import (
     ReRankEndEvent,
@@ -32,25 +33,19 @@ dispatcher = get_dispatcher(__name__)
 # The parameters are cast explicitly because google_ml.rank is overloaded and
 # untyped bind parameters make the call ambiguous (SQLSTATE 42725).
 RANK_QUERY = """
-    SELECT index, score FROM google_ml.rank(
-        CAST(:model_id AS VARCHAR),
-        CAST(:query AS TEXT),
-        CAST(:documents AS TEXT[]),
-        CAST(:top_n AS INTEGER)
-    )
+    SELECT index, score FROM google_ml.rank(CAST(:model_id AS VARCHAR),
+        CAST(:query AS TEXT), CAST(:documents AS TEXT[]), CAST(:top_n AS INTEGER))
 """
 
 
 def _to_ranked_nodes(
     nodes: Sequence[NodeWithScore], rows: Sequence[RowMapping]
 ) -> List[NodeWithScore]:
-    """Map ``(index, score)`` rows from google_ml.rank back to nodes.
+    """Map ``(index, score)`` rows from google_ml.rank to new nodes.
 
     ``index`` is the 1-based position of the node in the input list. Rows with
-    a NULL score or an index outside the input are skipped. The input nodes
-    are not modified. Each result is a new ``NodeWithScore`` that holds the
-    original node and the rank score. Results are sorted by score, highest
-    first.
+    a NULL score or an index outside the input are skipped. Each result is a
+    new ``NodeWithScore`` with the rank score, sorted by score, highest first.
     """
     valid_rows = [
         row
@@ -71,16 +66,8 @@ class AlloyDBRerank(BaseNodePostprocessor):
     integration. It needs the ``google_ml_integration`` extension (version
     1.5.2 or later) and the ``google_ml_integration.enable_ai_query_engine``
     database flag. The AlloyDB service agent needs the Discovery Engine
-    Viewer role (``roles/discoveryengine.viewer``).
-
-    .. code-block:: python
-
-        reranker = AlloyDBRerank(
-            engine=engine, model_id="semantic-ranker-default-003", top_n=3
-        )
-        query_engine = index.as_query_engine(
-            similarity_top_k=10, node_postprocessors=[reranker]
-        )
+    Viewer role (``roles/discoveryengine.viewer``). Database errors are
+    raised unchanged.
     """
 
     model_id: str = Field(
@@ -122,64 +109,42 @@ class AlloyDBRerank(BaseNodePostprocessor):
         nodes: List[NodeWithScore],
         query_bundle: Optional[QueryBundle] = None,
     ) -> List[NodeWithScore]:
-        """Rerank nodes by relevance to the query.
+        """Rerank nodes by relevance to the query with google_ml.rank.
 
-        Args:
-            nodes (List[NodeWithScore]): Nodes to rerank.
-            query_bundle (Optional[QueryBundle]): The query to rank the nodes
-                against.
-
-        Returns:
-            List[NodeWithScore]: New ``NodeWithScore`` objects with the rank
-            score, sorted by score (highest first) and limited to ``top_n``.
+        Returns new ``NodeWithScore`` objects with the rank score, sorted by
+        score (highest first) and limited to ``top_n``.
 
         Raises:
             ValueError: If ``query_bundle`` is missing or its query is blank.
         """
-        dispatcher.event(
-            ReRankStartEvent(
-                query=query_bundle,
-                nodes=nodes,
-                top_n=self.top_n,
-                model_name=self.model_id,
-            )
-        )
-        if query_bundle is None:
-            raise ValueError("Missing query bundle in extra info.")
+        query = self.__start(nodes, query_bundle)
         if not nodes:
             return []
-
         with self.callback_manager.event(
-            CBEventType.RERANKING, payload=self.__payload(nodes, query_bundle)
+            CBEventType.RERANKING, payload=self.__payload(nodes, query)
         ) as event:
-            rows = self._engine._run_as_sync(
-                self.__arank(nodes, query_bundle.query_str)
-            )
-            new_nodes = _to_ranked_nodes(nodes, rows)
-            event.on_end(payload={EventPayload.NODES: new_nodes})
-
-        dispatcher.event(ReRankEndEvent(nodes=new_nodes))
-        return new_nodes
+            rows = self._engine._run_as_sync(self.__arank(nodes, query))
+            return self.__finish(event, nodes, rows)
 
     async def _apostprocess_nodes(
         self,
         nodes: List[NodeWithScore],
         query_bundle: Optional[QueryBundle] = None,
     ) -> List[NodeWithScore]:
-        """Rerank nodes by relevance to the query.
+        """Async version of ``_postprocess_nodes``, run on the engine's loop."""
+        query = self.__start(nodes, query_bundle)
+        if not nodes:
+            return []
+        with self.callback_manager.event(
+            CBEventType.RERANKING, payload=self.__payload(nodes, query)
+        ) as event:
+            rows = await self._engine._run_as_async(self.__arank(nodes, query))
+            return self.__finish(event, nodes, rows)
 
-        Args:
-            nodes (List[NodeWithScore]): Nodes to rerank.
-            query_bundle (Optional[QueryBundle]): The query to rank the nodes
-                against.
-
-        Returns:
-            List[NodeWithScore]: New ``NodeWithScore`` objects with the rank
-            score, sorted by score (highest first) and limited to ``top_n``.
-
-        Raises:
-            ValueError: If ``query_bundle`` is missing or its query is blank.
-        """
+    def __start(
+        self, nodes: List[NodeWithScore], query_bundle: Optional[QueryBundle]
+    ) -> str:
+        """Emit the rerank start event, validate and return the query."""
         dispatcher.event(
             ReRankStartEvent(
                 query=query_bundle,
@@ -190,38 +155,35 @@ class AlloyDBRerank(BaseNodePostprocessor):
         )
         if query_bundle is None:
             raise ValueError("Missing query bundle in extra info.")
-        if not nodes:
-            return []
+        if not query_bundle.query_str.strip():
+            raise ValueError("Query string cannot be empty or whitespace.")
+        return query_bundle.query_str
 
-        with self.callback_manager.event(
-            CBEventType.RERANKING, payload=self.__payload(nodes, query_bundle)
-        ) as event:
-            rows = await self._engine._run_as_async(
-                self.__arank(nodes, query_bundle.query_str)
-            )
-            new_nodes = _to_ranked_nodes(nodes, rows)
-            event.on_end(payload={EventPayload.NODES: new_nodes})
-
-        dispatcher.event(ReRankEndEvent(nodes=new_nodes))
-        return new_nodes
-
-    def __payload(
-        self, nodes: List[NodeWithScore], query_bundle: QueryBundle
-    ) -> dict[str, Any]:
+    def __payload(self, nodes: List[NodeWithScore], query: str) -> dict[str, Any]:
         """Build the payload of the reranking callback event."""
         return {
             EventPayload.NODES: nodes,
             EventPayload.MODEL_NAME: self.model_id,
-            EventPayload.QUERY_STR: query_bundle.query_str,
+            EventPayload.QUERY_STR: query,
             EventPayload.TOP_K: self.top_n,
         }
+
+    def __finish(
+        self,
+        event: EventContext,
+        nodes: List[NodeWithScore],
+        rows: Sequence[RowMapping],
+    ) -> List[NodeWithScore]:
+        """Map the rows to new nodes and emit the rerank end events."""
+        new_nodes = _to_ranked_nodes(nodes, rows)
+        event.on_end(payload={EventPayload.NODES: new_nodes})
+        dispatcher.event(ReRankEndEvent(nodes=new_nodes))
+        return new_nodes
 
     async def __arank(
         self, nodes: List[NodeWithScore], query: str
     ) -> Sequence[RowMapping]:
-        """Validate the query and call google_ml.rank on the node texts."""
-        if not query.strip():
-            raise ValueError("Query string cannot be empty or whitespace.")
+        """Call google_ml.rank on the node texts."""
         params = {
             "model_id": self.model_id,
             "query": query,
