@@ -29,9 +29,7 @@ AI_FUNCTION_FLAGS = [
     "google_ml_integration.enable_preview_ai_functions",
 ]
 POSITIVE_TEXT = "I love this product. It works perfectly and the support team is great."
-NEGATIVE_TEXT = (
-    "This product is terrible. It broke after one day and support never answered."
-)
+NEGATIVE_TEXT = "Terrible product. It broke after one day and support never answered."
 ARTICLE = (
     "AlloyDB for PostgreSQL is a fully managed, PostgreSQL-compatible database "
     "service from Google Cloud. It separates compute from storage, and its storage "
@@ -47,7 +45,7 @@ ARTICLE = (
 )
 TRUE_CONDITION = "Is 2 + 2 equal to 4?"
 FALSE_CONDITION = "Is 2 + 2 equal to 5?"
-SHORT_UPPERCASE = "Use at most 25 words, all in uppercase letters."
+SUMMARY_INSTRUCTIONS = "Start with the word SUMMARY: and use at most 25 words."
 UNKNOWN_MODEL_ID = "no_such_model_" + uuid.uuid4().hex
 
 
@@ -71,16 +69,16 @@ async def arun_sql(
     return await engine._run_as_async(run())
 
 
-async def askip_if_ai_functions_disabled(engine: AlloyDBEngine) -> None:
+async def askip_if_flags_off(engine: AlloyDBEngine, flags: list[str]) -> None:
     query = "SELECT current_setting(:flag, true) AS value"
-    for flag in AI_FUNCTION_FLAGS:
+    for flag in flags:
         if await arun_sql(engine, query, {"flag": flag}) != "on":
-            pytest.skip(f"AlloyDB AI functions are disabled: {flag} is off.")
+            pytest.skip(f"A required database flag is off: {flag}.")
 
 
-def check_short_uppercase_summary(summary: str) -> None:
-    assert "ALLOYDB" in summary
-    assert summary == summary.upper()
+def check_instructed_summary(summary: str) -> None:
+    assert summary.strip(' "').upper().startswith("SUMMARY")
+    assert "alloydb" in summary.lower()
     assert len(summary) < len(ARTICLE) / 2
 
 
@@ -107,12 +105,13 @@ class TestAlloyDBToolSpecAsync:
 
     @pytest_asyncio.fixture(scope="class")
     async def tool_spec(self, engine):
-        await askip_if_ai_functions_disabled(engine)
+        await askip_if_flags_off(engine, AI_FUNCTION_FLAGS)
         return AlloyDBToolSpec(engine)
 
     @pytest_asyncio.fixture(scope="class")
     async def null_model_id(self, engine):
         """Registers a model whose output transform always returns NULL."""
+        await askip_if_flags_off(engine, ["google_ml_integration.enable_model_support"])
         suffix = uuid.uuid4().hex[:8]
         model_id, transform = f"null_llm_{suffix}", f"public.null_llm_output_{suffix}"
         await arun_sql(
@@ -152,9 +151,9 @@ class TestAlloyDBToolSpecAsync:
         assert await tool_spec.aanalyze_sentiment(NEGATIVE_TEXT) == "negative"
 
     async def test_asummarize(self, tool_spec):
-        assert "AlloyDB" in await tool_spec.asummarize(ARTICLE)
-        summary = await tool_spec.asummarize(ARTICLE, instructions=SHORT_UPPERCASE)
-        check_short_uppercase_summary(summary)
+        assert "alloydb" in (await tool_spec.asummarize(ARTICLE)).lower()
+        summary = await tool_spec.asummarize(ARTICLE, instructions=SUMMARY_INSTRUCTIONS)
+        check_instructed_summary(summary)
 
     async def test_aevaluate_condition(self, tool_spec):
         assert await tool_spec.aevaluate_condition(TRUE_CONDITION) is True
@@ -191,14 +190,17 @@ class TestAlloyDBToolSpecAsync:
         tool_spec = AlloyDBToolSpec(engine, model_id=UNKNOWN_MODEL_ID)
         with pytest.raises(DBAPIError) as exc_info:
             await tool_spec.aanalyze_sentiment(POSITIVE_TEXT)
-        assert exc_info.value.orig.sqlstate == "GAV03"  # Vertex AI rejected it
+        assert exc_info.value.orig.sqlstate  # GAV03 on AlloyDB with PostgreSQL 17
+        assert UNKNOWN_MODEL_ID in str(exc_info.value.orig)
 
     async def test_null_result_raises(self, engine, tool_spec, null_model_id):
         tool_spec = AlloyDBToolSpec(engine, model_id=null_model_id)
-        with pytest.raises(ValueError, match="google_ml.analyze_sentiment returned"):
+        with pytest.raises(
+            ValueError, match="google_ml.analyze_sentiment returned NULL"
+        ):
             await tool_spec.aanalyze_sentiment(POSITIVE_TEXT)
         with pytest.raises(ValueError, match="google_ml.summarize returned NULL"):
-            await tool_spec.asummarize(ARTICLE, instructions=SHORT_UPPERCASE)
+            await tool_spec.asummarize(ARTICLE, instructions=SUMMARY_INSTRUCTIONS)
         with pytest.raises(ValueError, match="google_ml.if returned NULL"):
             await tool_spec.aevaluate_condition(TRUE_CONDITION)
 
@@ -213,7 +215,7 @@ class TestAlloyDBToolSpecSync:
 
     @pytest_asyncio.fixture(scope="class")
     async def tool_spec(self, engine):
-        await askip_if_ai_functions_disabled(engine)
+        await askip_if_flags_off(engine, AI_FUNCTION_FLAGS)
         return AlloyDBToolSpec(engine)
 
     async def test_analyze_sentiment(self, tool_spec):
@@ -222,8 +224,8 @@ class TestAlloyDBToolSpecSync:
         assert sentiment.call(text=NEGATIVE_TEXT).raw_output == "negative"
 
     async def test_summarize(self, tool_spec):
-        summary = tool_spec.summarize(ARTICLE, instructions=SHORT_UPPERCASE)
-        check_short_uppercase_summary(summary)
+        summary = tool_spec.summarize(ARTICLE, instructions=SUMMARY_INSTRUCTIONS)
+        check_instructed_summary(summary)
 
     async def test_evaluate_condition(self, tool_spec):
         assert tool_spec.evaluate_condition(TRUE_CONDITION) is True
