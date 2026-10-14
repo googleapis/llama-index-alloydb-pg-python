@@ -38,6 +38,13 @@ class DistanceStrategy(StrategyMixin, enum.Enum):
 DEFAULT_DISTANCE_STRATEGY: DistanceStrategy = DistanceStrategy.COSINE_DISTANCE
 DEFAULT_INDEX_NAME_SUFFIX: str = "li_vectorindex"
 
+# ScaNN index modes, from https://cloud.google.com/alloydb/docs/ai/create-scann-index
+_SCANN_MODES = ("AUTO", "MANUAL")
+# Bounds of the scann.pct_leaves_to_search percentage, from
+# https://cloud.google.com/alloydb/docs/reference/ai/scann-index-reference
+_MIN_PCT_LEAVES_TO_SEARCH = 0
+_MAX_PCT_LEAVES_TO_SEARCH = 100
+
 
 @dataclass
 class BaseIndex(ABC):
@@ -161,28 +168,92 @@ class IVFQueryOptions(QueryOptions):
 
 @dataclass
 class ScaNNIndex(BaseIndex):
+    """ScaNN index configuration for AlloyDB.
+
+    See https://cloud.google.com/alloydb/docs/ai/create-scann-index.
+
+    Args:
+        num_leaves (int): Number of partitions. Used by the default and
+            ``"MANUAL"`` modes. Defaults to 5.
+        mode (Optional[str]): Keyword-only. ``"AUTO"`` lets AlloyDB choose the
+            index parameters, so ``num_leaves`` and ``quantizer`` are not sent.
+            ``"MANUAL"`` sends ``num_leaves`` and ``quantizer`` explicitly.
+            Case-insensitive. Defaults to ``None``, which emits the same index
+            options as previous releases.
+
+    Raises:
+        ValueError: If ``mode`` is not ``"AUTO"`` or ``"MANUAL"``.
+    """
+
     index_type: str = "ScaNN"
     num_leaves: int = 5
     quantizer: str = field(
         default="sq8", init=False
     )  # Disable `quantizer` initialization currently only supports the value "sq8"
+    # kw_only keeps the positional order of the existing fields unchanged.
+    mode: Optional[str] = field(default=None, kw_only=True)
+
+    def __post_init__(self) -> None:
+        if self.mode is not None:
+            if self.mode.upper() not in _SCANN_MODES:
+                raise ValueError(
+                    f"Invalid mode {self.mode!r}. Supported modes are 'AUTO' and 'MANUAL'."
+                )
+            self.mode = self.mode.upper()
 
     def index_options(self) -> str:
         """Set index query options for vector store initialization."""
+        if self.mode == "AUTO":
+            return "(mode = 'AUTO')"
+        if self.mode == "MANUAL":
+            return f"(mode = 'MANUAL', num_leaves = {self.num_leaves}, quantizer = {self.quantizer})"
         return f"(num_leaves = {self.num_leaves}, quantizer = {self.quantizer})"
 
 
 @dataclass
 class ScaNNQueryOptions(QueryOptions):
+    """Query options for a ScaNN index.
+
+    See https://cloud.google.com/alloydb/docs/reference/ai/scann-index-reference.
+
+    Args:
+        num_leaves_to_search (int): Number of partitions to search. Defaults to 1.
+        pre_reordering_num_neighbors (int): Number of candidate neighbors to
+            consider before reordering. ``-1`` uses the server default.
+            Defaults to -1.
+        pct_leaves_to_search (Optional[float]): Percentage of partitions to
+            search, between 0 and 100. When set, it is sent in addition to
+            ``num_leaves_to_search`` and AlloyDB uses it to pick the number of
+            partitions. Defaults to ``None``, which does not send it.
+
+    Raises:
+        ValueError: If ``pct_leaves_to_search`` is outside 0 to 100.
+    """
+
     num_leaves_to_search: int = 1
     pre_reordering_num_neighbors: int = -1
+    pct_leaves_to_search: Optional[float] = None
+
+    def __post_init__(self) -> None:
+        if self.pct_leaves_to_search is not None and not (
+            _MIN_PCT_LEAVES_TO_SEARCH
+            <= self.pct_leaves_to_search
+            <= _MAX_PCT_LEAVES_TO_SEARCH
+        ):
+            raise ValueError(
+                f"pct_leaves_to_search must be between {_MIN_PCT_LEAVES_TO_SEARCH} "
+                f"and {_MAX_PCT_LEAVES_TO_SEARCH}."
+            )
 
     def to_parameter(self) -> list[str]:
         """Convert index attributes to list of configurations."""
-        return [
+        params = [
             f"scann.num_leaves_to_search = {self.num_leaves_to_search}",
             f"scann.pre_reordering_num_neighbors = {self.pre_reordering_num_neighbors}",
         ]
+        if self.pct_leaves_to_search is not None:
+            params.append(f"scann.pct_leaves_to_search = {self.pct_leaves_to_search}")
+        return params
 
     def to_string(self) -> str:
         """Convert index attributes to string."""
@@ -190,4 +261,4 @@ class ScaNNQueryOptions(QueryOptions):
             "to_string is deprecated, use to_parameter instead.",
             DeprecationWarning,
         )
-        return f"scann.num_leaves_to_search = {self.num_leaves_to_search}, scann.pre_reordering_num_neighbors = {self.pre_reordering_num_neighbors}"
+        return ", ".join(self.to_parameter())

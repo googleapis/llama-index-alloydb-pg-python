@@ -15,11 +15,14 @@
 
 import os
 import uuid
+from typing import Any, Optional, Sequence
 
 import pytest
 import pytest_asyncio
-from llama_index.core.schema import TextNode
+from llama_index.core.schema import MetadataMode, TextNode
+from llama_index.core.vector_stores.types import VectorStoreQuery
 from sqlalchemy import text
+from sqlalchemy.engine.row import RowMapping
 
 from llama_index_alloydb_pg import AlloyDBEngine
 from llama_index_alloydb_pg.async_vector_store import AsyncAlloyDBVectorStore
@@ -28,10 +31,13 @@ from llama_index_alloydb_pg.indexes import (
     DistanceStrategy,
     HNSWIndex,
     IVFFlatIndex,
+    ScaNNIndex,
+    ScaNNQueryOptions,
 )
 
 DEFAULT_TABLE = "test_table" + str(uuid.uuid4()).replace("-", "_")
 DEFAULT_INDEX_NAME = DEFAULT_TABLE + DEFAULT_INDEX_NAME_SUFFIX
+SCANN_TABLE = "test_scann" + uuid.uuid4().hex
 VECTOR_SIZE = 5
 
 texts = ["foo", "bar", "baz", "foobar"]
@@ -47,6 +53,17 @@ nodes = [
     )
     for i in range(len(texts))
 ]
+# Distinct embeddings so that nearest-neighbor results are predictable.
+scann_embeddings = [
+    [1.0, 0.0, 0.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0, 0.0, 0.0],
+    [0.0, 0.0, 1.0, 0.0, 0.0],
+    [1.0, 1.0, 0.0, 0.0, 0.0],
+]
+scann_nodes = [
+    TextNode(id_=str(uuid.uuid4()), text=texts[i], embedding=scann_embeddings[i])
+    for i in range(len(texts))
+]
 
 
 def get_env_var(key: str, desc: str) -> str:
@@ -60,6 +77,14 @@ async def aexecute(engine: AlloyDBEngine, query: str) -> None:
     async with engine._pool.connect() as conn:
         await conn.execute(text(query))
         await conn.commit()
+
+
+async def afetch(
+    engine: AlloyDBEngine, query: str, params: Optional[dict[str, Any]] = None
+) -> Sequence[RowMapping]:
+    async with engine._pool.connect() as conn:
+        result = await conn.execute(text(query), params)
+        return result.mappings().fetchall()
 
 
 @pytest.mark.asyncio(loop_scope="class")
@@ -103,6 +128,7 @@ class TestIndex:
         )
         yield engine
         await aexecute(engine, f"DROP TABLE IF EXISTS {DEFAULT_TABLE}")
+        await aexecute(engine, f"DROP TABLE IF EXISTS {SCANN_TABLE}")
         await engine.close()
 
     @pytest_asyncio.fixture(scope="class")
@@ -117,6 +143,19 @@ class TestIndex:
 
         await vs.async_add(nodes)
         await vs.adrop_vector_index()
+        yield vs
+
+    @pytest_asyncio.fixture(scope="class")
+    async def vs_scann(self, engine):
+        await engine._ainit_vector_store_table(
+            SCANN_TABLE, VECTOR_SIZE, overwrite_existing=True
+        )
+        vs = await AsyncAlloyDBVectorStore.create(
+            engine,
+            table_name=SCANN_TABLE,
+            index_query_options=ScaNNQueryOptions(pct_leaves_to_search=100),
+        )
+        await vs.async_add(scann_nodes)
         yield vs
 
     async def test_aapply_vector_index(self, vs):
@@ -155,3 +194,29 @@ class TestIndex:
     async def test_is_valid_index(self, vs):
         is_valid = await vs.is_valid_index("invalid_index")
         assert is_valid == False
+
+    async def test_aapply_scann_index_auto(self, engine, vs):
+        index = ScaNNIndex(mode="auto")
+        await vs.aapply_vector_index(index)
+        assert await vs.is_valid_index(DEFAULT_INDEX_NAME)
+        results = await afetch(
+            engine,
+            "SELECT indexdef FROM pg_indexes WHERE indexname = :name",
+            {"name": DEFAULT_INDEX_NAME},
+        )
+        assert len(results) == 1
+        assert "USING scann" in results[0]["indexdef"]
+        assert results[0]["indexdef"].endswith("WITH (mode='AUTO')")
+        await vs.adrop_vector_index(DEFAULT_INDEX_NAME)
+
+    async def test_aquery_scann_pct_leaves(self, vs_scann):
+        await vs_scann.aapply_vector_index(ScaNNIndex(mode="AUTO"))
+        assert await vs_scann.is_valid_index(SCANN_TABLE + DEFAULT_INDEX_NAME_SUFFIX)
+        query = VectorStoreQuery(
+            query_embedding=[1.0, 0.1, 0.0, 0.0, 0.0], similarity_top_k=2
+        )
+        results = await vs_scann.aquery(query)
+        assert results.ids == [scann_nodes[0].node_id, scann_nodes[3].node_id]
+        assert [
+            node.get_content(metadata_mode=MetadataMode.NONE) for node in results.nodes
+        ] == ["foo", "foobar"]
