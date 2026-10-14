@@ -16,6 +16,7 @@ from .chat_store import AlloyDBChatStore
 from .document_store import AlloyDBDocumentStore
 from .engine import AlloyDBEngine, Column
 from .index_store import AlloyDBIndexStore
+from .model_manager import AlloyDBModel, AlloyDBModelManager
 from .reader import AlloyDBReader
 from .vector_store import AlloyDBVectorStore
 from .version import __version__
@@ -25,6 +26,8 @@ _all = [
     "AlloyDBDocumentStore",
     "AlloyDBEngine",
     "AlloyDBIndexStore",
+    "AlloyDBModel",
+    "AlloyDBModelManager",
     "AlloyDBReader",
     "AlloyDBVectorStore",
     "Column",

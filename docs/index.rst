@@ -9,6 +9,7 @@ API Reference
   llama_index_alloydb_pg/document_store
   llama_index_alloydb_pg/engine
   llama_index_alloydb_pg/index_store
+  llama_index_alloydb_pg/model_manager
   llama_index_alloydb_pg/reader
   llama_index_alloydb_pg/vector_store
 
