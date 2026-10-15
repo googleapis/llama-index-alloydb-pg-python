@@ -38,6 +38,7 @@ from llama_index_alloydb_pg.indexes import HNSWQueryOptions, ScaNNQueryOptions
 DEFAULT_TABLE = "test_table" + str(uuid.uuid4())
 DEFAULT_TABLE_CUSTOM_VS = "test_table" + str(uuid.uuid4())
 HYBRID_TABLE = "test_table" + str(uuid.uuid4())
+TSV_TABLE = "test_table" + str(uuid.uuid4())
 VECTOR_SIZE = 768
 
 texts = ["foo", "bar", "baz", "foobar"]
@@ -555,25 +556,32 @@ class TestVectorStore:
         results = await hybrid_vs.aquery(query)
         assert results.ids == ["c"]
 
-    async def test_aquery_text_search_with_tsvector_column(self, engine, hybrid_vs):
-        # The column stems with english while queries use simple, so only the
-        # column turns "tuning" into "tune".
+    @pytest_asyncio.fixture(scope="class")
+    async def tsv_table(self, engine):
+        await engine._ainit_vector_store_table(TSV_TABLE, 3, overwrite_existing=True)
         await aexecute(
             engine,
-            f"""ALTER TABLE "{HYBRID_TABLE}" ADD COLUMN IF NOT EXISTS tsv tsvector
+            f"""ALTER TABLE "{TSV_TABLE}" ADD COLUMN tsv tsvector
             GENERATED ALWAYS AS (to_tsvector('english', text)) STORED""",
         )
+        yield TSV_TABLE
+        await aexecute(engine, f'DROP TABLE IF EXISTS "{TSV_TABLE}"')
+
+    async def test_aquery_text_search_with_tsvector_column(self, engine, tsv_table):
+        # The column stems with english while queries use simple, so only the
+        # column turns "tuning" into "tune".
         query = VectorStoreQuery(
             query_str="tune", mode=VectorStoreQueryMode.TEXT_SEARCH, similarity_top_k=4
         )
         fallback_vs = await AsyncAlloyDBVectorStore.create(
-            engine, table_name=HYBRID_TABLE, text_search_config="simple"
+            engine, table_name=tsv_table, text_search_config="simple"
         )
+        await fallback_vs.async_add(hybrid_nodes)
         assert (await fallback_vs.aquery(query)).ids == []
 
         vs = await AsyncAlloyDBVectorStore.create(
             engine,
-            table_name=HYBRID_TABLE,
+            table_name=tsv_table,
             hybrid_search_column="tsv",
             text_search_config="simple",
         )
@@ -593,6 +601,11 @@ class TestVectorStore:
             await AsyncAlloyDBVectorStore.create(
                 engine, table_name=HYBRID_TABLE, hybrid_search_column="text"
             )
+        for config in ["klingon", "english) ; DROP TABLE x; --"]:
+            with pytest.raises(ValueError, match="Text search config, .*, does not"):
+                await AsyncAlloyDBVectorStore.create(
+                    engine, table_name=HYBRID_TABLE, text_search_config=config
+                )
 
     async def test_aquery_hybrid(self, hybrid_vs):
         query = VectorStoreQuery(
@@ -612,10 +625,22 @@ class TestVectorStore:
         results = await hybrid_vs.aquery(query)
         assert results.ids == ["b", "a", "d", "c"]
 
-        query.alpha = 0.0
-        query.hybrid_top_k = 2
+        # Rows only on the zero-weight side are not returned.
+        query.similarity_top_k, query.sparse_top_k, query.hybrid_top_k = 1, 4, 4
+        results = await hybrid_vs.aquery(query)
+        assert results.ids == ["b"]
+
+        query.alpha, query.similarity_top_k = 0.0, 4
         results = await hybrid_vs.aquery(query)
         assert results.ids == ["c", "a"]
+        assert results.similarities == pytest.approx([1 / 61, 1 / 62])
+
+        # b is the dense #1 and d the text #1 for "cooking", so they tie.
+        query.query_str, query.alpha, query.similarity_top_k = "cooking", None, 1
+        query.mode, query.sparse_top_k, query.hybrid_top_k = "hybrid", 1, 2
+        results = await hybrid_vs.aquery(query)
+        assert results.ids == ["b", "d"]
+        assert results.similarities == pytest.approx([0.5 / 61, 0.5 / 61])
 
     async def test_aquery_hybrid_with_filters(self, hybrid_vs):
         query = VectorStoreQuery(
@@ -639,6 +664,8 @@ class TestVectorStore:
             await hybrid_vs.aquery(
                 VectorStoreQuery(query_str=" ", mode=VectorStoreQueryMode.TEXT_SEARCH)
             )
+        with pytest.raises(ValueError, match="required for text_search queries"):
+            await hybrid_vs.aquery(VectorStoreQuery(query_str="", mode="text_search"))
         with pytest.raises(ValueError, match="query_embedding is required"):
             await hybrid_vs.aquery(
                 VectorStoreQuery(query_str="database", mode=VectorStoreQueryMode.HYBRID)
