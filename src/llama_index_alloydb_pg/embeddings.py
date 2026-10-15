@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from typing import Any, List
+from typing import Any, List, Optional
 
 from llama_index.core.base.embeddings.base import (
     DEFAULT_EMBED_BATCH_SIZE,
@@ -38,11 +38,17 @@ class AlloyDBEmbedding(BaseEmbedding):
 
     Texts are embedded with the AlloyDB AI ``embedding(model_id, content)``
     function, so ``model_id`` must be a model registered with model endpoint
-    management, for example ``text-embedding-005``. Each batch of texts is
-    embedded in one database round trip, and ``embed_batch_size`` controls the
-    batch size. The async batch methods run the batches concurrently, each on
-    its own pool connection, so use ``num_workers``, ``embed_batch_size`` or the
-    engine's pool size to limit the load on the database.
+    management, for example ``text-embedding-005``. Each batch of
+    ``embed_batch_size`` texts is sent in one SQL statement, and the database
+    evaluates ``embedding()`` once per row, so a larger batch saves round trips
+    but not model calls. Use the async methods for throughput. Empty or blank
+    texts raise ``ValueError``.
+
+    The async batch methods embed ``num_workers`` batches at a time, each on its
+    own pool connection. The default of 4 fits the engine's default pool of 5
+    connections. With more workers than the pool allows, or ``None`` or 1 (which
+    LlamaIndex treats as no limit), a large call can fail with
+    ``sqlalchemy.exc.TimeoutError`` while waiting for a connection.
 
     The async methods work with any engine. The sync methods run on the
     engine's background event loop, so they need an engine that has one, for
@@ -60,6 +66,7 @@ class AlloyDBEmbedding(BaseEmbedding):
         engine: AlloyDBEngine,
         model_id: str,
         embed_batch_size: int = DEFAULT_EMBED_BATCH_SIZE,
+        num_workers: Optional[int] = 4,
         **kwargs: Any,
     ) -> None:
         """AlloyDBEmbedding constructor.
@@ -67,20 +74,25 @@ class AlloyDBEmbedding(BaseEmbedding):
         Args:
             engine (AlloyDBEngine): AlloyDB engine with a connection pool to the database.
             model_id (str): The model endpoint id used to generate embeddings.
-            embed_batch_size (int): The number of texts embedded per database call.
+            embed_batch_size (int): The number of texts sent in one SQL statement.
                 Defaults to DEFAULT_EMBED_BATCH_SIZE.
-            **kwargs (Any): Additional arguments passed to BaseEmbedding.
+            num_workers (Optional[int]): The number of batches the async batch
+                methods embed at a time. Defaults to 4.
+            **kwargs (Any): Additional arguments passed to BaseEmbedding. A
+                ``model_name`` is ignored, since it always follows model_id.
 
         Raises:
             ValueError: If model_id is empty or blank.
         """
         if not model_id.strip():
             raise ValueError("model_id must be a non-empty string.")
+        kwargs.pop("model_name", None)
         # model_id is a field of this class, unknown to BaseEmbedding.__init__
         super().__init__(  # type: ignore[call-arg]
             model_id=model_id,
             model_name=model_id,
             embed_batch_size=embed_batch_size,
+            num_workers=num_workers,
             **kwargs,
         )
         self._engine = engine
@@ -89,8 +101,29 @@ class AlloyDBEmbedding(BaseEmbedding):
     def class_name(cls) -> str:
         return "AlloyDBEmbedding"
 
+    @staticmethod
+    def __check_texts(texts: List[str]) -> None:
+        """Raise ValueError naming the position of the first empty or blank text."""
+        for i, value in enumerate(texts):
+            if not value.strip():
+                raise ValueError(f"Text at position {i} is empty or blank.")
+
+    def get_text_embedding_batch(
+        self, texts: List[str], show_progress: bool = False, **kwargs: Any
+    ) -> List[Embedding]:
+        """Embed texts in batches, raising ValueError for an empty or blank text."""
+        self.__check_texts(texts)
+        return super().get_text_embedding_batch(texts, show_progress, **kwargs)
+
+    async def aget_text_embedding_batch(
+        self, texts: List[str], show_progress: bool = False, **kwargs: Any
+    ) -> List[Embedding]:
+        """Embed texts in batches, raising ValueError for an empty or blank text."""
+        self.__check_texts(texts)
+        return await super().aget_text_embedding_batch(texts, show_progress, **kwargs)
+
     async def __aembed(self, texts: List[str]) -> List[Embedding]:
-        """Embed a batch of texts in one database round trip.
+        """Embed a batch of texts with one SQL statement.
 
         Args:
             texts (List[str]): The texts to embed.
@@ -98,6 +131,7 @@ class AlloyDBEmbedding(BaseEmbedding):
         Returns:
             List[Embedding]: One embedding per text, in input order.
         """
+        self.__check_texts(texts)
         async with self._engine._pool.connect() as conn:
             result = await conn.execute(
                 text(EMBEDDING_QUERY),

@@ -20,7 +20,7 @@ import pytest
 import pytest_asyncio
 from llama_index.core import StorageContext, VectorStoreIndex
 from llama_index.core.schema import TextNode
-from sqlalchemy import RowMapping, text
+from sqlalchemy import RowMapping, event, text
 from sqlalchemy.exc import DBAPIError
 
 from llama_index_alloydb_pg import AlloyDBEmbedding, AlloyDBEngine, AlloyDBVectorStore
@@ -141,6 +141,41 @@ class TestAlloyDBEmbeddingAsync:
             scores = [embed_model.similarity(vector, single) for single in singles]
             assert scores[i] >= 0.999
             assert max(range(len(texts)), key=scores.__getitem__) == i
+        with pytest.raises(ValueError, match="position 3"):
+            await embed_model.aget_text_embedding_batch(texts[:3] + [" "])
+        with pytest.raises(ValueError, match="position 0"):
+            await embed_model.aget_query_embedding("")
+
+    async def test_aget_text_embedding_batch_many_texts(self, engine, embed_model):
+        # 200 texts in 20 batches, at most num_workers (4) of them at a time.
+        many = [f"Note {i}: the meeting is about topic {i % 7}." for i in range(200)]
+        pool, peak = engine._pool.pool, [0]
+
+        def on_checkout(*args):
+            peak[0] = max(peak[0], pool.checkedout())
+
+        event.listen(pool, "checkout", on_checkout)
+        batch = await embed_model.aget_text_embedding_batch(many)
+        event.remove(pool, "checkout", on_checkout)
+        assert peak[0] == embed_model.num_workers == 4
+        assert len(batch) == len(many)
+        assert all(len(vector) == VECTOR_SIZE for vector in batch)
+        for i in (0, 117, 199):
+            single = await embed_model.aget_text_embedding(many[i])
+            assert embed_model.similarity(batch[i], single) >= 0.999
+
+    async def test_serialization_round_trip(self, engine):
+        embed_model = AlloyDBEmbedding(
+            engine=engine, model_id=MODEL_ID, model_name="ignored", embed_batch_size=3
+        )
+        assert embed_model.model_name == MODEL_ID
+        for copy in (
+            AlloyDBEmbedding.from_dict(embed_model.to_dict(), engine=engine),
+            AlloyDBEmbedding.from_json(embed_model.to_json(), engine=engine),
+        ):
+            assert copy.to_dict() == embed_model.to_dict()
+            embedding = await copy.aget_query_embedding("What is AlloyDB?")
+            assert len(embedding) == VECTOR_SIZE
 
     async def test_embed_text_with_sql(self, engine, embed_model):
         await aexecute(engine, f'CREATE TABLE "{SQL_TABLE}" (id INT)')
@@ -220,6 +255,8 @@ class TestAlloyDBEmbeddingSync:
         single = embed_model.get_text_embedding(texts[2])
         assert len(batch) == len(texts)
         assert embed_model.similarity(batch[2], single) >= 0.999
+        with pytest.raises(ValueError, match="position 5"):
+            embed_model.get_text_embedding_batch(texts + [""])
 
     async def test_vector_store_index_end_to_end(self, engine, embed_model):
         engine.init_vector_store_table(VS_TABLE, VECTOR_SIZE)
