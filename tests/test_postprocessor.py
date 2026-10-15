@@ -167,8 +167,8 @@ class TestAlloyDBRerank:
         assert end.payload["nodes"] == result
 
     async def test_nodes_without_text(self, engine, ranking):
-        # Nodes without text are left out, and top_n may exceed the rest.
-        empty = NodeWithScore(node=TextNode(text=""))
+        # Blank and image nodes are left out, and top_n may exceed the rest.
+        empty = NodeWithScore(node=TextNode(text=" \n\t"))
         image = NodeWithScore(node=ImageNode(image_url="https://example.com/a.png"))
         nodes = [empty, NODES[0], image, NODES[1], NODES[2]]
         reranker = AlloyDBRerank(engine=engine, model_id=RANKING_MODEL_ID, top_n=10)

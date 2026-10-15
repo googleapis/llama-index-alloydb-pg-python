@@ -64,7 +64,7 @@ class AlloyDBRerank(BaseNodePostprocessor):
     ``google_ml_integration.enable_model_support`` and
     ``google_ml_integration.enable_ai_query_engine`` flags on, the Discovery
     Engine API enabled and ``roles/discoveryengine.viewer`` for the AlloyDB
-    service agent. Nodes without text (for example an ``ImageNode``) are
+    service agent. Nodes without text (an ``ImageNode`` or blank text) are
     left out of the result. Database errors are raised unchanged.
     """
 
@@ -158,8 +158,8 @@ class AlloyDBRerank(BaseNodePostprocessor):
             raise ValueError("Missing query bundle in extra info.")
         if not query_bundle.query_str.strip():
             raise ValueError("Query string cannot be empty or whitespace.")
-        # google_ml.rank fails on an empty document, so skip nodes without text.
-        nodes = [n for n in nodes if n.node.get_content(MetadataMode.EMBED)]
+        # google_ml.rank fails on empty documents and ranks blank ones, so skip them.
+        nodes = [n for n in nodes if n.node.get_content(MetadataMode.EMBED).strip()]
         return query_bundle.query_str, nodes
 
     def __payload(self, nodes: List[NodeWithScore], query: str) -> dict[str, Any]:
