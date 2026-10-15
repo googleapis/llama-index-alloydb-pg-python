@@ -245,7 +245,7 @@ class TestIndex:
             )
             assert result.mappings().fetchone()["pct"] == "100"
             result = await conn.execute(text(f"EXPLAIN {query_stmt}"), params)
-            plan = "\n".join(row[0] for row in result.fetchall())
+            plan = "\n".join(row["QUERY PLAN"] for row in result.mappings())
             assert f"Index Scan using {SCANN_TABLE}{DEFAULT_INDEX_NAME_SUFFIX}" in plan
             result = await conn.execute(text(query_stmt), params)
             assert [row["node_id"] for row in result.mappings()] == expected_ids
