@@ -26,7 +26,8 @@ MODEL_SUPPORT_FLAG = "google_ml_integration.enable_model_support"
 MODEL_INFO_QUERY = (
     "SELECT model_id, model_request_url, model_provider, model_type, "
     "model_qualified_name, model_auth_type, model_auth_id, input_transform_fn, "
-    "output_transform_fn FROM google_ml.model_info_view"
+    "output_transform_fn, header_gen_fn AS generate_headers_fn "
+    "FROM google_ml.model_info_view"
 )
 
 CREATE_MODEL_ENUMS = {
@@ -49,6 +50,7 @@ class AlloyDBModel:
     model_auth_id: Optional[str]
     input_transform_fn: Optional[str]
     output_transform_fn: Optional[str]
+    generate_headers_fn: Optional[str]
 
 
 class AlloyDBModelManager:
@@ -98,7 +100,17 @@ class AlloyDBModelManager:
     def create_sync(
         cls: type[AlloyDBModelManager], engine: AlloyDBEngine
     ) -> AlloyDBModelManager:
-        """Synchronously create an AlloyDBModelManager. See `create`."""
+        """Synchronously create an AlloyDBModelManager after checking support.
+
+        Args:
+            engine (AlloyDBEngine): AlloyDB engine with a connection pool.
+
+        Returns:
+            AlloyDBModelManager: A new model manager.
+
+        Raises:
+            ValueError: If model endpoint management is not available.
+        """
         manager = cls(cls.__create_key, engine)
         engine._run_as_sync(manager.__avalidate())
         return manager
@@ -141,7 +153,14 @@ class AlloyDBModelManager:
         return await self._engine._run_as_async(self.__aget_model(model_id))
 
     def get_model(self, model_id: str) -> Optional[AlloyDBModel]:
-        """Synchronously get a registered model endpoint. See `aget_model`."""
+        """Synchronously get a registered model endpoint.
+
+        Args:
+            model_id (str): The ID of the model endpoint.
+
+        Returns:
+            Optional[AlloyDBModel]: The model endpoint, or None if it is missing.
+        """
         return self._engine._run_as_sync(self.__aget_model(model_id))
 
     async def __alist_models(self) -> list[AlloyDBModel]:
@@ -161,14 +180,18 @@ class AlloyDBModelManager:
         return await self._engine._run_as_async(self.__alist_models())
 
     def list_models(self) -> list[AlloyDBModel]:
-        """Synchronously list all model endpoints. See `alist_models`."""
+        """Synchronously list all model endpoints, including the built-in ones.
+
+        Returns:
+            list[AlloyDBModel]: The model endpoints ordered by model ID.
+        """
         return self._engine._run_as_sync(self.__alist_models())
 
     async def __acreate_model(self, **args: Optional[str]) -> None:
         """Call google_ml.create_model with the arguments that are not None."""
         for name in ("model_id", "model_provider", "model_type"):
-            if not args[name]:
-                raise ValueError(f"{name} must be a non-empty string.")
+            if not (args[name] or "").strip():
+                raise ValueError(f"{name} must be a non-blank string.")
         params = {name: value for name, value in args.items() if value is not None}
         named_args = ", ".join(
             f"{name} => CAST(:{name} AS {CREATE_MODEL_ENUMS.get(name, 'VARCHAR')})"
@@ -198,8 +221,10 @@ class AlloyDBModelManager:
         Args:
             model_id (str): A unique ID for the model endpoint.
             model_provider (str): The provider, for example "google" or "custom".
-            model_type (str): The type, for example "text_embedding" or "llm".
-            model_qualified_name (Optional[str]): The qualified model name.
+            model_type (str): The type, for example "text_embedding" or "generic".
+            model_qualified_name (Optional[str]): The qualified model name. With
+                provider "google", leaving it and model_request_url unset
+                registers an unusable endpoint.
             model_request_url (Optional[str]): The model-specific endpoint URL.
             model_auth_type (Optional[str]): The authentication type.
             model_auth_id (Optional[str]): The secret ID used for authentication.
@@ -208,7 +233,8 @@ class AlloyDBModelManager:
             model_out_transform_fn (Optional[str]): SQL function for the output.
 
         Raises:
-            ValueError: If model_id, model_provider or model_type is empty.
+            ValueError: If model_id, model_provider or model_type is blank.
+            DBAPIError: If the database rejects the call (e.g. duplicate model_id).
         """
         await self._engine._run_as_async(
             self.__acreate_model(
@@ -239,7 +265,10 @@ class AlloyDBModelManager:
         model_in_transform_fn: Optional[str] = None,
         model_out_transform_fn: Optional[str] = None,
     ) -> None:
-        """Synchronously register a model endpoint. See `acreate_model`."""
+        """Synchronously register a model endpoint.
+
+        Takes the same arguments and raises the same errors as `acreate_model`.
+        """
         self._engine._run_as_sync(
             self.__acreate_model(
                 model_id=model_id,
@@ -268,10 +297,14 @@ class AlloyDBModelManager:
         """Drop a registered model endpoint.
 
         Args:
-            model_id (str): The ID of the model endpoint.
+            model_id (str): The model ID. Unknown or built-in IDs are a silent no-op.
         """
         await self._engine._run_as_async(self.__adrop_model(model_id))
 
     def drop_model(self, model_id: str) -> None:
-        """Synchronously drop a registered model endpoint. See `adrop_model`."""
+        """Synchronously drop a registered model endpoint.
+
+        Args:
+            model_id (str): The model ID. Unknown or built-in IDs are a silent no-op.
+        """
         self._engine._run_as_sync(self.__adrop_model(model_id))

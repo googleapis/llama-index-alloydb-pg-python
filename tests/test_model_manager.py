@@ -19,10 +19,12 @@ from dataclasses import asdict
 import pytest
 import pytest_asyncio
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from llama_index_alloydb_pg import AlloyDBEngine, AlloyDBModelManager
+from llama_index_alloydb_pg.model_manager import MODEL_SUPPORT_FLAG
 
-MODEL_SUPPORT_FLAG = "google_ml_integration.enable_model_support"
+HEADERS_FN = "google_ml.anthropic_claude_header_gen_fn"
 QUALIFIED_NAME = "text-embedding-005"
 REQUEST_URL = (
     "https://{region}-aiplatform.googleapis.com/v1/projects/{project_id}"
@@ -96,6 +98,7 @@ class TestAlloyDBModelManagerAsync:
         url = REQUEST_URL.format(**engine_args)
         auth = "alloydb_service_agent_iam"
         expected = dict(EMBEDDING_MODEL, model_request_url=url, model_auth_type=auth)
+        expected["generate_headers_fn"] = HEADERS_FN
         try:
             await manager.acreate_model(model_id, **expected)
             model = await manager.aget_model(model_id)
@@ -128,11 +131,22 @@ class TestAlloyDBModelManagerAsync:
         finally:
             await manager.adrop_model(model_id)
 
+    async def test_acreate_model_duplicate_id(self, manager):
+        model_id = new_model_id()
+        try:
+            await manager.acreate_model(model_id, **EMBEDDING_MODEL)
+            with pytest.raises(DBAPIError, match="Model already exists") as e:
+                await manager.acreate_model(model_id, **EMBEDDING_MODEL)
+            assert e.value.orig.sqlstate == "P0001"
+        finally:
+            await manager.adrop_model(model_id)
+
+    @pytest.mark.parametrize("value", ["", "   "])
     @pytest.mark.parametrize("blank", ["model_id", "model_provider", "model_type"])
-    async def test_acreate_model_blank_argument(self, manager, blank):
+    async def test_acreate_model_blank_argument(self, manager, blank, value):
         args = dict(EMBEDDING_MODEL, model_id=new_model_id())
-        args[blank] = ""
-        with pytest.raises(ValueError, match=f"{blank} must be a non-empty string"):
+        args[blank] = value
+        with pytest.raises(ValueError, match=f"{blank} must be a non-blank string"):
             await manager.acreate_model(**args)
 
 
