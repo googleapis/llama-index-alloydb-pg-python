@@ -109,18 +109,18 @@ class AlloyDBEmbedding(BaseEmbedding):
                 raise ValueError(f"Text at position {i} is empty or blank.")
 
     def get_text_embedding_batch(
-        self, texts: List[str], show_progress: bool = False, **kwargs: Any
+        self, texts: List[str], *args: Any, **kwargs: Any
     ) -> List[Embedding]:
         """Embed texts in batches, raising ValueError for an empty or blank text."""
         self.__check_texts(texts)
-        return super().get_text_embedding_batch(texts, show_progress, **kwargs)
+        return super().get_text_embedding_batch(texts, *args, **kwargs)
 
     async def aget_text_embedding_batch(
-        self, texts: List[str], show_progress: bool = False, **kwargs: Any
+        self, texts: List[str], *args: Any, **kwargs: Any
     ) -> List[Embedding]:
         """Embed texts in batches, raising ValueError for an empty or blank text."""
         self.__check_texts(texts)
-        return await super().aget_text_embedding_batch(texts, show_progress, **kwargs)
+        return await super().aget_text_embedding_batch(texts, *args, **kwargs)
 
     async def __aembed(self, texts: List[str]) -> List[Embedding]:
         """Embed a batch of texts with one SQL statement.
