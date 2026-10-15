@@ -23,7 +23,7 @@ from llama_index.core.callbacks import CallbackManager, CBEventType, LlamaDebugH
 from llama_index.core.llms import MockLLM
 from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.core.response_synthesizers.no_text import NoText
-from llama_index.core.schema import NodeWithScore, QueryBundle, TextNode
+from llama_index.core.schema import ImageNode, NodeWithScore, QueryBundle, TextNode
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -166,18 +166,19 @@ class TestAlloyDBRerank:
         assert start.payload["query_str"] == QUERY
         assert end.payload["nodes"] == result
 
-    async def test_top_n_larger_than_nodes(self, engine, ranking):
+    async def test_nodes_without_text(self, engine, ranking):
+        # Nodes without text are left out, and top_n may exceed the rest.
+        empty = NodeWithScore(node=TextNode(text=""))
+        image = NodeWithScore(node=ImageNode(image_url="https://example.com/a.png"))
+        nodes = [empty, NODES[0], image, NODES[1], NODES[2]]
         reranker = AlloyDBRerank(engine=engine, model_id=RANKING_MODEL_ID, top_n=10)
-        result = await reranker.apostprocess_nodes(NODES, query_str=QUERY)
-        check_ranked(result, expected_len=3)
-        assert {id(node.node) for node in result} == {id(node.node) for node in NODES}
-
-    async def test_inputs_not_modified(self, engine, ranking):
-        nodes = [NodeWithScore(node=node.node, score=0.5) for node in NODES]
-        reranker = AlloyDBRerank(engine=engine, model_id=RANKING_MODEL_ID, top_n=3)
-        result = await reranker.apostprocess_nodes(nodes, query_str=QUERY)
-        assert [node.score for node in nodes] == [0.5, 0.5, 0.5]
-        assert all(new is not old for new in result for old in nodes)
+        expected = await reranker.apostprocess_nodes(NODES, query_str=QUERY)
+        check_ranked(expected, expected_len=3)
+        assert await reranker.apostprocess_nodes(nodes, query_str=QUERY) == expected
+        assert reranker.postprocess_nodes(nodes, query_str=QUERY) == expected
+        assert reranker.postprocess_nodes([empty, image], query_str=QUERY) == []
+        assert [node.score for node in NODES] == [0.5, 0.5, 0.5]
+        assert all(new is not old for new in expected for old in NODES)
 
     async def test_empty_nodes(self, engine):
         reranker = AlloyDBRerank(engine=engine, model_id=RANKING_MODEL_ID)

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, List, Optional, Sequence
+from typing import Any, List, Optional, Sequence, Tuple
 
 from llama_index.core.bridge.pydantic import Field, PrivateAttr
 from llama_index.core.callbacks import CBEventType, EventPayload
@@ -47,15 +47,10 @@ def _to_ranked_nodes(
     a NULL score or an index outside the input are skipped. Each result is a
     new ``NodeWithScore`` with the rank score, sorted by score, highest first.
     """
-    valid_rows = [
-        row
-        for row in rows
-        if row["score"] is not None and 1 <= row["index"] <= len(nodes)
-    ]
-    valid_rows.sort(key=lambda row: row["score"], reverse=True)
+    valid = [r for r in rows if r["score"] is not None and 0 < r["index"] <= len(nodes)]
     return [
-        NodeWithScore(node=nodes[row["index"] - 1].node, score=float(row["score"]))
-        for row in valid_rows
+        NodeWithScore(node=nodes[r["index"] - 1].node, score=float(r["score"]))
+        for r in sorted(valid, key=lambda r: r["score"], reverse=True)
     ]
 
 
@@ -63,11 +58,14 @@ class AlloyDBRerank(BaseNodePostprocessor):
     """Reranks nodes with AlloyDB AI's ``google_ml.rank()`` function.
 
     The ranking runs inside the database through AlloyDB's Vertex AI
-    integration. It needs the ``google_ml_integration`` extension (version
-    1.5.2 or later) and the ``google_ml_integration.enable_ai_query_engine``
-    database flag. The AlloyDB service agent needs the Discovery Engine
-    Viewer role (``roles/discoveryengine.viewer``). Database errors are
-    raised unchanged.
+    integration. As listed in
+    https://cloud.google.com/alloydb/docs/ai/rank-rerank-search-results-rag,
+    it needs the ``google_ml_integration`` extension 1.5.2 or later, the
+    ``google_ml_integration.enable_model_support`` and
+    ``google_ml_integration.enable_ai_query_engine`` flags on, the Discovery
+    Engine API enabled and ``roles/discoveryengine.viewer`` for the AlloyDB
+    service agent. Nodes without text (for example an ``ImageNode``) are
+    left out of the result. Database errors are raised unchanged.
     """
 
     model_id: str = Field(
@@ -83,9 +81,12 @@ class AlloyDBRerank(BaseNodePostprocessor):
 
         Args:
             engine (AlloyDBEngine): The AlloyDB engine to run the ranking on.
-            model_id (str): The ranking model id, for example
-                ``"semantic-ranker-default-003"``.
-            top_n (int): Number of nodes to return. Defaults to 2.
+            model_id (str): A Vertex AI ranking model id, for example
+                ``"semantic-ranker-default-003"``, or a registered reranking
+                model. Other ids raise no error: Vertex AI then ranks with
+                its default model.
+            top_n (int): Number of nodes to return. Defaults to 2. Checked
+                only here: assigning it later is not validated.
             **kwargs (Any): Other ``BaseNodePostprocessor`` fields, for
                 example ``callback_manager``.
 
@@ -117,7 +118,7 @@ class AlloyDBRerank(BaseNodePostprocessor):
         Raises:
             ValueError: If ``query_bundle`` is missing or its query is blank.
         """
-        query = self.__start(nodes, query_bundle)
+        query, nodes = self.__start(nodes, query_bundle)
         if not nodes:
             return []
         with self.callback_manager.event(
@@ -132,7 +133,7 @@ class AlloyDBRerank(BaseNodePostprocessor):
         query_bundle: Optional[QueryBundle] = None,
     ) -> List[NodeWithScore]:
         """Async version of ``_postprocess_nodes``, run on the engine's loop."""
-        query = self.__start(nodes, query_bundle)
+        query, nodes = self.__start(nodes, query_bundle)
         if not nodes:
             return []
         with self.callback_manager.event(
@@ -143,8 +144,8 @@ class AlloyDBRerank(BaseNodePostprocessor):
 
     def __start(
         self, nodes: List[NodeWithScore], query_bundle: Optional[QueryBundle]
-    ) -> str:
-        """Emit the rerank start event, validate and return the query."""
+    ) -> Tuple[str, List[NodeWithScore]]:
+        """Emit the start event, validate the query, return it and the nodes."""
         dispatcher.event(
             ReRankStartEvent(
                 query=query_bundle,
@@ -157,7 +158,9 @@ class AlloyDBRerank(BaseNodePostprocessor):
             raise ValueError("Missing query bundle in extra info.")
         if not query_bundle.query_str.strip():
             raise ValueError("Query string cannot be empty or whitespace.")
-        return query_bundle.query_str
+        # google_ml.rank fails on an empty document, so skip nodes without text.
+        nodes = [n for n in nodes if n.node.get_content(MetadataMode.EMBED)]
+        return query_bundle.query_str, nodes
 
     def __payload(self, nodes: List[NodeWithScore], query: str) -> dict[str, Any]:
         """Build the payload of the reranking callback event."""
