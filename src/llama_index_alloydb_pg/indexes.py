@@ -182,7 +182,9 @@ class ScaNNIndex(BaseIndex):
             ``"MANUAL"`` sends ``num_leaves`` and ``quantizer`` explicitly.
             Case-insensitive. Defaults to ``None``, which emits the same index
             options as previous releases. ``"AUTO"`` needs at least 10,000 rows
-            in the table, otherwise AlloyDB defers the index build.
+            in the table, otherwise AlloyDB defers the index build. The
+            ``set_maintenance_work_mem`` sizing is based on ``num_leaves``, so
+            it doesn't apply to ``"AUTO"``.
 
     Raises:
         ValueError: If ``mode`` is not ``"AUTO"`` or ``"MANUAL"``.
@@ -224,10 +226,12 @@ class ScaNNQueryOptions(QueryOptions):
         pre_reordering_num_neighbors (int): Number of candidate neighbors to
             consider before reordering. ``-1`` uses the server default.
             Defaults to -1.
-        pct_leaves_to_search (Optional[float]): Percentage of partitions to
-            search, between 0 and 100. When set, it is sent in addition to
-            ``num_leaves_to_search`` and AlloyDB uses it to pick the number of
-            partitions. Defaults to ``None``, which does not send it.
+        pct_leaves_to_search (Optional[float]): Percentage of the current
+            partitions to search, between 0 and 100 (fractions allowed). A
+            value above 0 is used instead of ``num_leaves_to_search``. 0 turns
+            it off, so AlloyDB uses ``num_leaves_to_search``. Defaults to
+            ``None``, which does not send it, so the server setting applies.
+            See https://cloud.google.com/alloydb/docs/ai/maintain-vector-indexes#manage-leave-to-search-split-partitions.
 
     Raises:
         ValueError: If ``pct_leaves_to_search`` is outside 0 to 100.

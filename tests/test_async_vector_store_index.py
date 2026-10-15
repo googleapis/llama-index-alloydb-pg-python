@@ -196,6 +196,8 @@ class TestIndex:
         assert is_valid == False
 
     async def test_aapply_scann_index_auto(self, engine, vs):
+        # Checks that the server accepts the AUTO and MANUAL DDL. AlloyDB defers
+        # the AUTO build on this small table, so queries don't use the index.
         index = ScaNNIndex(mode="auto")
         await vs.aapply_vector_index(index)
         assert await vs.is_valid_index(DEFAULT_INDEX_NAME)
@@ -221,27 +223,39 @@ class TestIndex:
         await vs.adrop_vector_index(DEFAULT_INDEX_NAME)
 
     async def test_aquery_scann_pct_leaves(self, engine, vs_scann):
-        # The server accepts every SET LOCAL statement the options produce,
-        # and the session reports the percentage.
+        # AlloyDB defers an AUTO index build until the table has 10,000 rows,
+        # so the planner can't use one here. A MANUAL index with one partition
+        # is built right away.
+        await vs_scann.aapply_vector_index(ScaNNIndex(num_leaves=1, mode="MANUAL"))
+        embedding = [1.0, 0.1, 0.0, 0.0, 0.0]
+        expected_ids = [scann_nodes[0].node_id, scann_nodes[3].node_id]
+        # The query shape the store sends for a cosine distance search.
+        query_stmt = (
+            f'SELECT node_id FROM "{SCANN_TABLE}" '
+            "ORDER BY embedding <=> :embedding LIMIT 2"
+        )
+        params = {"embedding": str(embedding)}
         options = ScaNNQueryOptions(pct_leaves_to_search=100)
         async with engine._pool.connect() as conn:
             for parameter in options.to_parameter():
                 await conn.execute(text(f"SET LOCAL {parameter}"))
+            await conn.execute(text("SET LOCAL enable_seqscan = off"))
             result = await conn.execute(
                 text("SELECT current_setting('scann.pct_leaves_to_search') AS pct")
             )
             assert result.mappings().fetchone()["pct"] == "100"
+            result = await conn.execute(text(f"EXPLAIN {query_stmt}"), params)
+            plan = "\n".join(row[0] for row in result.fetchall())
+            assert f"Index Scan using {SCANN_TABLE}{DEFAULT_INDEX_NAME_SUFFIX}" in plan
+            result = await conn.execute(text(query_stmt), params)
+            assert [row["node_id"] for row in result.mappings()] == expected_ids
             await conn.rollback()
 
-        # A store query with the same options on an AUTO-indexed table returns
-        # the expected nearest rows.
-        await vs_scann.aapply_vector_index(ScaNNIndex(mode="AUTO"))
-        assert await vs_scann.is_valid_index(SCANN_TABLE + DEFAULT_INDEX_NAME_SUFFIX)
-        query = VectorStoreQuery(
-            query_embedding=[1.0, 0.1, 0.0, 0.0, 0.0], similarity_top_k=2
-        )
+        # The store sends the same options with its query.
+        query = VectorStoreQuery(query_embedding=embedding, similarity_top_k=2)
         results = await vs_scann.aquery(query)
-        assert results.ids == [scann_nodes[0].node_id, scann_nodes[3].node_id]
+        assert results.ids == expected_ids
         assert [
             node.get_content(metadata_mode=MetadataMode.NONE) for node in results.nodes
         ] == ["foo", "foobar"]
+        await vs_scann.adrop_vector_index()
