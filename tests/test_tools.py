@@ -77,7 +77,8 @@ async def askip_if_flags_off(engine: AlloyDBEngine, flags: list[str]) -> None:
 
 
 def check_instructed_summary(summary: str) -> None:
-    assert summary.strip(' "').upper().startswith("SUMMARY")
+    # google_ml.summarize often wraps its output in double quotes.
+    assert summary.removeprefix('"').upper().startswith("SUMMARY")
     assert "alloydb" in summary.lower()
     assert len(summary) < len(ARTICLE) / 2
 
@@ -104,8 +105,11 @@ class TestAlloyDBToolSpecAsync:
         await engine.close()
 
     @pytest_asyncio.fixture(scope="class")
-    async def tool_spec(self, engine):
+    async def ai_flags(self, engine):
         await askip_if_flags_off(engine, AI_FUNCTION_FLAGS)
+
+    @pytest_asyncio.fixture(scope="class")
+    async def tool_spec(self, engine, ai_flags):
         return AlloyDBToolSpec(engine)
 
     @pytest_asyncio.fixture(scope="class")
@@ -176,33 +180,34 @@ class TestAlloyDBToolSpecAsync:
         output = await condition.acall(condition=TRUE_CONDITION)
         assert output.raw_output is True
 
-    async def test_blank_input(self, engine, tool_spec):
+    async def test_blank_input(self, engine):
+        spec = AlloyDBToolSpec(engine)
         with pytest.raises(ValueError, match="text must be a non-empty string"):
-            await tool_spec.aanalyze_sentiment("   ")
+            await spec.aanalyze_sentiment("   ")
         with pytest.raises(ValueError, match="text must be a non-empty string"):
-            await tool_spec.asummarize("")
+            await spec.asummarize("")
         with pytest.raises(ValueError, match="condition must be a non-empty string"):
-            await tool_spec.aevaluate_condition(" \n ")
+            await spec.aevaluate_condition(" \n ")
         with pytest.raises(ValueError, match="model_id must be a non-empty string"):
             AlloyDBToolSpec(engine, model_id="  ")
 
-    async def test_unknown_model_id_raises(self, engine, tool_spec):
-        tool_spec = AlloyDBToolSpec(engine, model_id=UNKNOWN_MODEL_ID)
+    async def test_unknown_model_id_raises(self, engine, ai_flags):
+        spec = AlloyDBToolSpec(engine, model_id=UNKNOWN_MODEL_ID)
         with pytest.raises(DBAPIError) as exc_info:
-            await tool_spec.aanalyze_sentiment(POSITIVE_TEXT)
+            await spec.aanalyze_sentiment(POSITIVE_TEXT)
         assert exc_info.value.orig.sqlstate  # GAV03 on AlloyDB with PostgreSQL 17
         assert UNKNOWN_MODEL_ID in str(exc_info.value.orig)
 
-    async def test_null_result_raises(self, engine, tool_spec, null_model_id):
-        tool_spec = AlloyDBToolSpec(engine, model_id=null_model_id)
+    async def test_null_result_raises(self, engine, ai_flags, null_model_id):
+        spec = AlloyDBToolSpec(engine, model_id=null_model_id)
         with pytest.raises(
             ValueError, match="google_ml.analyze_sentiment returned NULL"
         ):
-            await tool_spec.aanalyze_sentiment(POSITIVE_TEXT)
+            await spec.aanalyze_sentiment(POSITIVE_TEXT)
         with pytest.raises(ValueError, match="google_ml.summarize returned NULL"):
-            await tool_spec.asummarize(ARTICLE, instructions=SUMMARY_INSTRUCTIONS)
+            await spec.asummarize(ARTICLE, instructions=SUMMARY_INSTRUCTIONS)
         with pytest.raises(ValueError, match="google_ml.if returned NULL"):
-            await tool_spec.aevaluate_condition(TRUE_CONDITION)
+            await spec.aevaluate_condition(TRUE_CONDITION)
 
 
 @pytest.mark.asyncio(loop_scope="class")

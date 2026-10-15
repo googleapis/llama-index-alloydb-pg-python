@@ -19,21 +19,15 @@ from sqlalchemy import text as sql_text
 
 from .engine import AlloyDBEngine
 
-_SENTIMENT_QUERY = "SELECT google_ml.analyze_sentiment(CAST(:text AS TEXT)) AS result"
-_SENTIMENT_MODEL_QUERY = (
+_SENTIMENT_QUERY = (
     "SELECT google_ml.analyze_sentiment(CAST(:text AS TEXT),"
     " CAST(:model_id AS VARCHAR)) AS result"
 )
 _SUMMARIZE_QUERY = (
     "SELECT google_ml.summarize(CAST(:text AS TEXT),"
-    " CAST(:instructions AS TEXT)) AS result"
-)
-_SUMMARIZE_MODEL_QUERY = (
-    "SELECT google_ml.summarize(CAST(:text AS TEXT),"
     " CAST(:instructions AS TEXT), CAST(:model_id AS VARCHAR)) AS result"
 )
-_IF_QUERY = "SELECT google_ml.if(CAST(:condition AS TEXT)) AS result"
-_IF_MODEL_QUERY = (
+_IF_QUERY = (
     "SELECT google_ml.if(CAST(:condition AS TEXT),"
     " CAST(:model_id AS VARCHAR)) AS result"
 )
@@ -44,8 +38,11 @@ class AlloyDBToolSpec(BaseToolSpec):
 
     ``AlloyDBToolSpec(engine).to_tool_list()`` returns one ``FunctionTool``
     per function, each with a native async path, ready for an agent such as
-    ``FunctionAgent``. Requires AlloyDB with the ``google_ml_integration``
-    extension and its AI function flags turned on.
+    ``FunctionAgent``. Requires AlloyDB for PostgreSQL 17 or later with the
+    ``google_ml_integration`` extension 1.5.7 or later and the
+    ``google_ml_integration.enable_ai_query_engine`` and
+    ``google_ml_integration.enable_preview_ai_functions`` flags on. See
+    https://cloud.google.com/alloydb/docs/ai/analyze-sentiment.
 
     Args:
         engine (AlloyDBEngine): Connection pool to the AlloyDB database.
@@ -69,13 +66,9 @@ class AlloyDBToolSpec(BaseToolSpec):
         self._engine = engine
         self._model_id = model_id
 
-    async def __afetch(
-        self, function: str, query: str, model_query: str, params: dict[str, Any]
-    ) -> Any:
+    async def __afetch(self, function: str, query: str, params: dict[str, Any]) -> Any:
         """Run an AI function query and return its result, which can't be NULL."""
-        if self._model_id is not None:
-            query = model_query
-            params = {**params, "model_id": self._model_id}
+        params = {**params, "model_id": self._model_id}
         async with self._engine._pool.connect() as conn:
             result = await conn.execute(sql_text(query), params)
             value = result.mappings().one()["result"]
@@ -87,10 +80,7 @@ class AlloyDBToolSpec(BaseToolSpec):
         if not text.strip():
             raise ValueError("text must be a non-empty string.")
         return await self.__afetch(
-            "analyze_sentiment",
-            _SENTIMENT_QUERY,
-            _SENTIMENT_MODEL_QUERY,
-            {"text": text},
+            "analyze_sentiment", _SENTIMENT_QUERY, {"text": text}
         )
 
     async def __asummarize(self, text: str, instructions: Optional[str]) -> str:
@@ -99,16 +89,13 @@ class AlloyDBToolSpec(BaseToolSpec):
         return await self.__afetch(
             "summarize",
             _SUMMARIZE_QUERY,
-            _SUMMARIZE_MODEL_QUERY,
             {"text": text, "instructions": instructions},
         )
 
     async def __aevaluate_condition(self, condition: str) -> bool:
         if not condition.strip():
             raise ValueError("condition must be a non-empty string.")
-        return await self.__afetch(
-            "if", _IF_QUERY, _IF_MODEL_QUERY, {"condition": condition}
-        )
+        return await self.__afetch("if", _IF_QUERY, {"condition": condition})
 
     def analyze_sentiment(self, text: str) -> str:
         """Classify the sentiment of a text as positive, negative or neutral.
@@ -147,7 +134,8 @@ class AlloyDBToolSpec(BaseToolSpec):
                 for example "Use three bullet points". Defaults to None.
 
         Returns:
-            str: The summary.
+            str: The summary, as the model returned it. It is often wrapped
+                in double quotes.
 
         Raises:
             ValueError: If ``text`` is blank or the model gives no answer.
@@ -163,7 +151,8 @@ class AlloyDBToolSpec(BaseToolSpec):
                 for example "Use three bullet points". Defaults to None.
 
         Returns:
-            str: The summary.
+            str: The summary, as the model returned it. It is often wrapped
+                in double quotes.
 
         Raises:
             ValueError: If ``text`` is blank or the model gives no answer.
