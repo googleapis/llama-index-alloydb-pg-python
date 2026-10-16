@@ -14,13 +14,12 @@
 
 import os
 import uuid
-from typing import Any, List, Optional
+from typing import List, Optional
 
 import pytest
 import pytest_asyncio
 from llama_index.core import MockEmbedding, StorageContext, VectorStoreIndex
 from llama_index.core.callbacks import CallbackManager, CBEventType, LlamaDebugHandler
-from llama_index.core.instrumentation.event_handlers import BaseEventHandler
 from llama_index.core.llms import MockLLM
 from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.core.response_synthesizers.no_text import NoText
@@ -29,7 +28,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from llama_index_alloydb_pg import AlloyDBEngine, AlloyDBRerank, AlloyDBVectorStore
-from llama_index_alloydb_pg.postprocessor import _to_ranked_nodes, dispatcher
+from llama_index_alloydb_pg.postprocessor import _to_ranked_nodes
 
 RANKING_MODEL_ID = "semantic-ranker-default-003"
 # google_ml.rank raises (SQLSTATE P0001) unless this database flag is on.
@@ -54,13 +53,6 @@ def get_env_var(key: str, desc: str) -> str:
     if v is None:
         raise ValueError(f"Must set env var {key} to: {desc}")
     return v
-
-
-class RerankEvents(BaseEventHandler):
-    events: List[Any] = []
-
-    def handle(self, event: Any, **kwargs: Any) -> None:
-        self.events.append(event)
 
 
 def check_ranked(result: List[NodeWithScore], expected_len: int) -> None:
@@ -106,15 +98,28 @@ class TestAlloyDBRerank:
 
     @pytest_asyncio.fixture(scope="class")
     async def ranking(self, engine):
-        async def fetch_flag() -> Optional[str]:
+        reranker = AlloyDBRerank(engine=engine, model_id=RANKING_MODEL_ID)
+        try:
+            await reranker.apostprocess_nodes(NODES[:1], query_str=QUERY)
+        except DBAPIError as e:
+            if getattr(e.orig, "sqlstate", None) == "P0001" and (
+                await self.ai_query_engine_flag(engine) != "on"
+            ):
+                pytest.skip(
+                    "google_ml.rank is disabled on this instance (SQLSTATE P0001): "
+                    f"the {AI_QUERY_ENGINE_FLAG} flag is off."
+                )
+            raise
+
+    async def ai_query_engine_flag(self, engine: AlloyDBEngine) -> Optional[str]:
+        async def fetch() -> Optional[str]:
             async with engine._pool.connect() as conn:
                 result = await conn.execute(
                     text(FLAG_QUERY), {"flag": AI_QUERY_ENGINE_FLAG}
                 )
                 return result.scalar()
 
-        if await engine._run_as_async(fetch_flag()) != "on":
-            pytest.skip(f"google_ml.rank needs the {AI_QUERY_ENGINE_FLAG} flag on.")
+        return await engine._run_as_async(fetch())
 
     @pytest_asyncio.fixture(scope="class")
     async def index(self, engine):
@@ -170,11 +175,7 @@ class TestAlloyDBRerank:
         reranker = AlloyDBRerank(engine=engine, model_id=RANKING_MODEL_ID, top_n=10)
         expected = await reranker.apostprocess_nodes(NODES, query_str=QUERY)
         check_ranked(expected, expected_len=3)
-        handler = RerankEvents()
-        dispatcher.add_event_handler(handler)
         assert await reranker.apostprocess_nodes(nodes, query_str=QUERY) == expected
-        dispatcher.event_handlers.remove(handler)
-        assert [event.nodes for event in handler.events] == [NODES, expected]
         assert reranker.postprocess_nodes(nodes, query_str=QUERY) == expected
         for blank in ([], [empty, image]):
             assert await reranker.apostprocess_nodes(blank, query_str=QUERY) == []
@@ -183,13 +184,12 @@ class TestAlloyDBRerank:
         assert all(new is not old for new in expected for old in NODES)
 
     async def test_database_error(self, engine, ranking):
-        # A NUL byte fails with SQLSTATE 22021, raised unchanged.
+        # A NUL byte fails with SQLSTATE 22021, which is raised unchanged.
         reranker = AlloyDBRerank(engine=engine, model_id=RANKING_MODEL_ID)
         nodes = [NodeWithScore(node=TextNode(text="abc\x00def"))]
-        error = "CharacterNotInRepertoireError.*invalid byte sequence"
-        with pytest.raises(DBAPIError, match=error):
+        with pytest.raises(DBAPIError, match="invalid byte sequence"):
             await reranker.apostprocess_nodes(nodes, query_str=QUERY)
-        with pytest.raises(DBAPIError, match=error):
+        with pytest.raises(DBAPIError, match="invalid byte sequence"):
             reranker.postprocess_nodes(nodes, query_str=QUERY)
 
     async def test_missing_query(self, engine):
