@@ -1,7 +1,7 @@
 Node Postprocessor
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``AlloyDBRerank`` is a LlamaIndex node postprocessor that reranks retrieved nodes in the database with AlloyDB AI's ``google_ml.rank`` function. ``model_id`` is required.
+``AlloyDBRerank`` is a LlamaIndex node postprocessor that reranks retrieved nodes in the database with AlloyDB AI's ``google_ml.rank`` function. ``model_id`` is required. The async ``apostprocess_nodes`` needs llama-index-core 0.12.32 or later.
 
 .. note::
    Prerequisites (see `Rank and rerank search results <https://cloud.google.com/alloydb/docs/ai/rank-rerank-search-results-rag>`_): the ``google_ml_integration`` extension 1.5.2 or later, the ``google_ml_integration.enable_model_support`` and ``google_ml_integration.enable_ai_query_engine`` database flags turned on, the Discovery Engine API (``discoveryengine.googleapis.com``) enabled, and the ``roles/discoveryengine.viewer`` IAM role for the AlloyDB service agent.

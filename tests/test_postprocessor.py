@@ -14,12 +14,13 @@
 
 import os
 import uuid
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import pytest
 import pytest_asyncio
 from llama_index.core import MockEmbedding, StorageContext, VectorStoreIndex
 from llama_index.core.callbacks import CallbackManager, CBEventType, LlamaDebugHandler
+from llama_index.core.instrumentation.event_handlers import BaseEventHandler
 from llama_index.core.llms import MockLLM
 from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.core.response_synthesizers.no_text import NoText
@@ -28,7 +29,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from llama_index_alloydb_pg import AlloyDBEngine, AlloyDBRerank, AlloyDBVectorStore
-from llama_index_alloydb_pg.postprocessor import _to_ranked_nodes
+from llama_index_alloydb_pg.postprocessor import _to_ranked_nodes, dispatcher
 
 RANKING_MODEL_ID = "semantic-ranker-default-003"
 # google_ml.rank raises (SQLSTATE P0001) unless this database flag is on.
@@ -53,6 +54,13 @@ def get_env_var(key: str, desc: str) -> str:
     if v is None:
         raise ValueError(f"Must set env var {key} to: {desc}")
     return v
+
+
+class RerankEvents(BaseEventHandler):
+    events: List[Any] = []
+
+    def handle(self, event: Any, **kwargs: Any) -> None:
+        self.events.append(event)
 
 
 def check_ranked(result: List[NodeWithScore], expected_len: int) -> None:
@@ -98,28 +106,15 @@ class TestAlloyDBRerank:
 
     @pytest_asyncio.fixture(scope="class")
     async def ranking(self, engine):
-        reranker = AlloyDBRerank(engine=engine, model_id=RANKING_MODEL_ID)
-        try:
-            await reranker.apostprocess_nodes(NODES[:1], query_str=QUERY)
-        except DBAPIError as e:
-            if getattr(e.orig, "sqlstate", None) == "P0001" and (
-                await self.ai_query_engine_flag(engine) != "on"
-            ):
-                pytest.skip(
-                    "google_ml.rank is disabled on this instance (SQLSTATE P0001): "
-                    f"the {AI_QUERY_ENGINE_FLAG} flag is off."
-                )
-            raise
-
-    async def ai_query_engine_flag(self, engine: AlloyDBEngine) -> Optional[str]:
-        async def fetch() -> Optional[str]:
+        async def fetch_flag() -> Optional[str]:
             async with engine._pool.connect() as conn:
                 result = await conn.execute(
                     text(FLAG_QUERY), {"flag": AI_QUERY_ENGINE_FLAG}
                 )
                 return result.scalar()
 
-        return await engine._run_as_async(fetch())
+        if await engine._run_as_async(fetch_flag()) != "on":
+            pytest.skip(f"google_ml.rank needs the {AI_QUERY_ENGINE_FLAG} flag on.")
 
     @pytest_asyncio.fixture(scope="class")
     async def index(self, engine):
@@ -168,43 +163,50 @@ class TestAlloyDBRerank:
 
     async def test_nodes_without_text(self, engine, ranking):
         # Blank and image nodes are left out, and top_n may exceed the rest.
-        empty = NodeWithScore(node=TextNode(text=" \n\t"))
+        # Format characters (ZWSP, BOM, ZWJ, word joiner) count as blank.
+        empty = NodeWithScore(node=TextNode(text=" \n\t\u200b\ufeff\u200d\u2060"))
         image = NodeWithScore(node=ImageNode(image_url="https://example.com/a.png"))
         nodes = [empty, NODES[0], image, NODES[1], NODES[2]]
         reranker = AlloyDBRerank(engine=engine, model_id=RANKING_MODEL_ID, top_n=10)
         expected = await reranker.apostprocess_nodes(NODES, query_str=QUERY)
         check_ranked(expected, expected_len=3)
+        handler = RerankEvents()
+        dispatcher.add_event_handler(handler)
         assert await reranker.apostprocess_nodes(nodes, query_str=QUERY) == expected
+        dispatcher.event_handlers.remove(handler)
+        assert [event.nodes for event in handler.events] == [NODES, expected]
         assert reranker.postprocess_nodes(nodes, query_str=QUERY) == expected
-        assert reranker.postprocess_nodes([empty, image], query_str=QUERY) == []
+        for blank in ([], [empty, image]):
+            assert await reranker.apostprocess_nodes(blank, query_str=QUERY) == []
+            assert reranker.postprocess_nodes(blank, query_str=QUERY) == []
         assert [node.score for node in NODES] == [0.5, 0.5, 0.5]
         assert all(new is not old for new in expected for old in NODES)
 
-    async def test_empty_nodes(self, engine):
+    async def test_database_error(self, engine, ranking):
+        # A NUL byte fails with SQLSTATE 22021, raised unchanged.
         reranker = AlloyDBRerank(engine=engine, model_id=RANKING_MODEL_ID)
-        assert await reranker.apostprocess_nodes([], query_str=QUERY) == []
-        assert reranker.postprocess_nodes([], query_str=QUERY) == []
+        nodes = [NodeWithScore(node=TextNode(text="abc\x00def"))]
+        error = "CharacterNotInRepertoireError.*invalid byte sequence"
+        with pytest.raises(DBAPIError, match=error):
+            await reranker.apostprocess_nodes(nodes, query_str=QUERY)
+        with pytest.raises(DBAPIError, match=error):
+            reranker.postprocess_nodes(nodes, query_str=QUERY)
 
     async def test_missing_query(self, engine):
         reranker = AlloyDBRerank(engine=engine, model_id=RANKING_MODEL_ID)
-        with pytest.raises(ValueError, match="Missing query bundle"):
-            await reranker.apostprocess_nodes(NODES)
-        with pytest.raises(ValueError, match="Missing query bundle"):
-            reranker.postprocess_nodes(NODES)
-        for query in ("", "  \n\t "):
-            with pytest.raises(ValueError, match="Query string cannot be empty"):
+        for query in (None, "", "  \n\t "):
+            match = "Missing query bundle" if query is None else "Query string cannot"
+            with pytest.raises(ValueError, match=match):
                 await reranker.apostprocess_nodes(NODES, query_str=query)
-            with pytest.raises(ValueError, match="Query string cannot be empty"):
+            with pytest.raises(ValueError, match=match):
                 reranker.postprocess_nodes(NODES, query_str=query)
 
     async def test_to_ranked_nodes(self):
         pairs = [(3, 0.4), (1, None), (0, 0.99), (4, 0.9), (2, 0.95)]
         rows = [{"index": index, "score": score} for index, score in pairs]
         result = _to_ranked_nodes(NODES, rows)  # type: ignore[arg-type]
-        assert [(node.node, node.score) for node in result] == [
-            (NODES[1].node, 0.95),
-            (NODES[2].node, 0.4),
-        ]
+        expected = [(NODES[1].node, 0.95), (NODES[2].node, 0.4)]
+        assert [(node.node, node.score) for node in result] == expected
         assert _to_ranked_nodes(NODES, []) == []
 
     async def test_query_engine_end_to_end(self, engine, ranking, index):
@@ -217,10 +219,7 @@ class TestAlloyDBRerank:
             response_synthesizer=NoText(llm=MockLLM()),
             node_postprocessors=[reranker],
         )
-        for response in (
-            await query_engine.aquery(QUERY),
-            query_engine.query(QUERY),
-        ):
+        for response in (await query_engine.aquery(QUERY), query_engine.query(QUERY)):
             [first, second] = response.source_nodes
             assert first.node.get_content() == TEXTS[1]
             assert first.score >= second.score  # type: ignore[operator]

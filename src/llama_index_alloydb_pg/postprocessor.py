@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import unicodedata
 from typing import Any, List, Optional, Sequence, Tuple
 
 from llama_index.core.bridge.pydantic import Field, PrivateAttr
@@ -30,8 +31,8 @@ from .engine import AlloyDBEngine
 
 dispatcher = get_dispatcher(__name__)
 
-# The parameters are cast explicitly because google_ml.rank is overloaded and
-# untyped bind parameters make the call ambiguous (SQLSTATE 42725).
+# google_ml.rank works from extension 1.5.2 and is what ai.rank calls underneath.
+# Casts are needed: it is overloaded and untyped binds are ambiguous (SQLSTATE 42725).
 RANK_QUERY = """
     SELECT index, score FROM google_ml.rank(CAST(:model_id AS VARCHAR),
         CAST(:query AS TEXT), CAST(:documents AS TEXT[]), CAST(:top_n AS INTEGER))
@@ -41,17 +42,18 @@ RANK_QUERY = """
 def _to_ranked_nodes(
     nodes: Sequence[NodeWithScore], rows: Sequence[RowMapping]
 ) -> List[NodeWithScore]:
-    """Map ``(index, score)`` rows from google_ml.rank to new nodes.
-
-    ``index`` is the 1-based position of the node in the input list. Rows with
-    a NULL score or an index outside the input are skipped. Each result is a
-    new ``NodeWithScore`` with the rank score, sorted by score, highest first.
-    """
+    """Map 1-based ``(index, score)`` rows to new nodes, highest score first."""
     valid = [r for r in rows if r["score"] is not None and 0 < r["index"] <= len(nodes)]
     return [
         NodeWithScore(node=nodes[r["index"] - 1].node, score=float(r["score"]))
         for r in sorted(valid, key=lambda r: r["score"], reverse=True)
     ]
+
+
+def _has_text(node: NodeWithScore) -> bool:
+    """Whether the text has a character other than whitespace or format (Cf)."""
+    content = node.node.get_content(MetadataMode.EMBED)
+    return any(not c.isspace() and unicodedata.category(c) != "Cf" for c in content)
 
 
 class AlloyDBRerank(BaseNodePostprocessor):
@@ -64,8 +66,9 @@ class AlloyDBRerank(BaseNodePostprocessor):
     ``google_ml_integration.enable_model_support`` and
     ``google_ml_integration.enable_ai_query_engine`` flags on, the Discovery
     Engine API enabled and ``roles/discoveryengine.viewer`` for the AlloyDB
-    service agent. Nodes without text (an ``ImageNode`` or blank text) are
-    left out of the result. Database errors are raised unchanged.
+    service agent. Nodes with no text (an ``ImageNode``) or only whitespace or
+    format characters are left out. Database errors are raised unchanged.
+    Async ``apostprocess_nodes`` needs llama-index-core 0.12.32 or later.
     """
 
     model_id: str = Field(
@@ -83,8 +86,8 @@ class AlloyDBRerank(BaseNodePostprocessor):
             engine (AlloyDBEngine): The AlloyDB engine to run the ranking on.
             model_id (str): A Vertex AI ranking model id, for example
                 ``"semantic-ranker-default-003"``, or a registered reranking
-                model. Other ids raise no error: Vertex AI then ranks with
-                its default model.
+                model. Unregistered ids raise no error and rank with the
+                default model, while a registered non-reranking model raises.
             top_n (int): Number of nodes to return. Defaults to 2. Checked
                 only here: assigning it later is not validated.
             **kwargs (Any): Other ``BaseNodePostprocessor`` fields, for
@@ -145,7 +148,9 @@ class AlloyDBRerank(BaseNodePostprocessor):
     def __start(
         self, nodes: List[NodeWithScore], query_bundle: Optional[QueryBundle]
     ) -> Tuple[str, List[NodeWithScore]]:
-        """Emit the start event, validate the query, return it and the nodes."""
+        """Skip nodes without text, emit the start event, validate the query."""
+        # google_ml.rank fails on empty documents and ranks blank ones, so skip them.
+        nodes = [n for n in nodes if _has_text(n)]
         dispatcher.event(
             ReRankStartEvent(
                 query=query_bundle,
@@ -158,8 +163,6 @@ class AlloyDBRerank(BaseNodePostprocessor):
             raise ValueError("Missing query bundle in extra info.")
         if not query_bundle.query_str.strip():
             raise ValueError("Query string cannot be empty or whitespace.")
-        # google_ml.rank fails on empty documents and ranks blank ones, so skip them.
-        nodes = [n for n in nodes if n.node.get_content(MetadataMode.EMBED).strip()]
         return query_bundle.query_str, nodes
 
     def __payload(self, nodes: List[NodeWithScore], query: str) -> dict[str, Any]:
@@ -187,13 +190,11 @@ class AlloyDBRerank(BaseNodePostprocessor):
         self, nodes: List[NodeWithScore], query: str
     ) -> Sequence[RowMapping]:
         """Call google_ml.rank on the node texts."""
+        documents = [n.node.get_content(MetadataMode.EMBED) for n in nodes]
         params = {
             "model_id": self.model_id,
             "query": query,
-            "documents": [
-                node.node.get_content(metadata_mode=MetadataMode.EMBED)
-                for node in nodes
-            ],
+            "documents": documents,
             "top_n": self.top_n,
         }
         async with self._engine._pool.connect() as conn:
