@@ -14,16 +14,19 @@
 
 import os
 import uuid
-from dataclasses import asdict
+from dataclasses import asdict, fields
 
 import pytest
 import pytest_asyncio
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from llama_index_alloydb_pg import AlloyDBEngine, AlloyDBModelManager
+from llama_index_alloydb_pg import AlloyDBEngine, AlloyDBModel, AlloyDBModelManager
 from llama_index_alloydb_pg.model_manager import MODEL_SUPPORT_FLAG
 
+# google_ml_integration has no header function for Google endpoints (they
+# authenticate with alloydb_service_agent_iam), so the create/get test uses the
+# Anthropic one. The server only checks that the function exists.
 HEADERS_FN = "google_ml.anthropic_claude_header_gen_fn"
 QUALIFIED_NAME = "text-embedding-005"
 REQUEST_URL = (
@@ -141,13 +144,32 @@ class TestAlloyDBModelManagerAsync:
         finally:
             await manager.adrop_model(model_id)
 
-    @pytest.mark.parametrize("value", ["", "   "])
-    @pytest.mark.parametrize("blank", ["model_id", "model_provider", "model_type"])
-    async def test_acreate_model_blank_argument(self, manager, blank, value):
-        args = dict(EMBEDDING_MODEL, model_id=new_model_id())
-        args[blank] = value
-        with pytest.raises(ValueError, match=f"{blank} must be a non-blank string"):
+    @pytest.mark.parametrize("value", ["", "   ", 5])
+    @pytest.mark.parametrize("name", [f.name for f in fields(AlloyDBModel)])
+    async def test_acreate_model_invalid_argument(self, manager, name, value):
+        model_id = new_model_id()
+        args = dict(EMBEDDING_MODEL, model_id=model_id)
+        args[name] = value
+        with pytest.raises(ValueError, match=f"{name} must be a non-blank string"):
             await manager.acreate_model(**args)
+        assert await manager.aget_model(model_id) is None
+
+    async def test_model_round_trip(self, manager):
+        model_id, copy_id = new_model_id(), new_model_id()
+        try:
+            await manager.acreate_model(model_id, **EMBEDDING_MODEL)
+            args = asdict(await manager.aget_model(model_id))
+            del args["model_id"]
+            # The server fills in the transform functions for this model.
+            transform = "google_ml.vertexai_text_embedding_{}_transform"
+            assert args["model_in_transform_fn"] == transform.format("input")
+            assert args["model_out_transform_fn"] == transform.format("output")
+            await manager.acreate_model(copy_id, **args)
+            copy = asdict(await manager.aget_model(copy_id))
+            assert copy == dict(args, model_id=copy_id)
+        finally:
+            await manager.adrop_model(model_id)
+            await manager.adrop_model(copy_id)
 
 
 @pytest.mark.asyncio(loop_scope="class")
