@@ -19,6 +19,7 @@ from sqlalchemy import text as sql_text
 
 from .engine import AlloyDBEngine
 
+# google_ml.* are the documented ai.* functions, as in langchain-google-alloydb-pg.
 _SENTIMENT_QUERY = (
     "SELECT google_ml.analyze_sentiment(CAST(:text AS TEXT),"
     " CAST(:model_id AS VARCHAR)) AS result"
@@ -67,7 +68,7 @@ class AlloyDBToolSpec(BaseToolSpec):
         self._model_id = model_id
 
     async def __afetch(self, function: str, query: str, params: dict[str, Any]) -> Any:
-        """Run an AI function query and return its result, which can't be NULL."""
+        # Run an AI function query and return its result, which can't be NULL.
         params = {**params, "model_id": self._model_id}
         async with self._engine._pool.connect() as conn:
             result = await conn.execute(sql_text(query), params)
@@ -87,9 +88,7 @@ class AlloyDBToolSpec(BaseToolSpec):
         if not text.strip():
             raise ValueError("text must be a non-empty string.")
         return await self.__afetch(
-            "summarize",
-            _SUMMARIZE_QUERY,
-            {"text": text, "instructions": instructions},
+            "summarize", _SUMMARIZE_QUERY, {"text": text, "instructions": instructions}
         )
 
     async def __aevaluate_condition(self, condition: str) -> bool:
@@ -135,7 +134,7 @@ class AlloyDBToolSpec(BaseToolSpec):
 
         Returns:
             str: The summary, as the model returned it. It is often wrapped
-                in double quotes.
+            in double quotes.
 
         Raises:
             ValueError: If ``text`` is blank or the model gives no answer.
@@ -152,7 +151,7 @@ class AlloyDBToolSpec(BaseToolSpec):
 
         Returns:
             str: The summary, as the model returned it. It is often wrapped
-                in double quotes.
+            in double quotes.
 
         Raises:
             ValueError: If ``text`` is blank or the model gives no answer.

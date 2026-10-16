@@ -126,12 +126,10 @@ class TestAlloyDBToolSpecAsync:
         try:
             await arun_sql(
                 engine,
-                """CALL google_ml.create_model(
-                    model_id => :model_id,
+                """CALL google_ml.create_model(model_id => :model_id,
                     model_request_url => 'publishers/google/models/'
                         || current_setting(:default_model) || '\\:generateContent',
-                    model_provider => 'google',
-                    model_type => 'llm',
+                    model_provider => 'google', model_type => 'llm',
                     model_qualified_name => current_setting(:default_model),
                     model_in_transform_fn => 'google_ml.gemini_llm_input_transform',
                     model_out_transform_fn => :transform)""",
@@ -175,10 +173,8 @@ class TestAlloyDBToolSpecAsync:
         schema = summarize.metadata.get_parameters_dict()
         assert list(schema["properties"]) == ["text", "instructions"]
         assert schema["required"] == ["text"]
-        output = await sentiment.acall(text=NEGATIVE_TEXT)
-        assert output.raw_output == "negative"
-        output = await condition.acall(condition=TRUE_CONDITION)
-        assert output.raw_output is True
+        assert (await sentiment.acall(text=NEGATIVE_TEXT)).raw_output == "negative"
+        assert (await condition.acall(condition=TRUE_CONDITION)).raw_output is True
 
     async def test_blank_input(self, engine):
         spec = AlloyDBToolSpec(engine)
