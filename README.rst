@@ -192,6 +192,22 @@ Use an index store to keep track of indexes built on documents.
    )
 
 
+Embedding Usage
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use an embedding model to generate embeddings inside AlloyDB with a registered model.
+
+.. code-block:: python
+
+   from llama_index_alloydb_pg import AlloyDBEmbedding, AlloyDBEngine
+
+
+   engine = await AlloyDBEngine.afrom_instance(
+      "project-id", "region", "my-cluster", "my-instance", "my-database"
+   )
+   embed_model = AlloyDBEmbedding(engine=engine, model_id="text-embedding-005")
+
+
 Contributions
 ~~~~~~~~~~~~~
 

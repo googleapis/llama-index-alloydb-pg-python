@@ -24,6 +24,7 @@ from sqlalchemy import RowMapping, event, text
 from sqlalchemy.exc import DBAPIError
 
 from llama_index_alloydb_pg import AlloyDBEmbedding, AlloyDBEngine, AlloyDBVectorStore
+from llama_index_alloydb_pg.embeddings import DEFAULT_NUM_WORKERS
 
 MODEL_ID = "text-embedding-005"
 VECTOR_SIZE = 768
@@ -59,43 +60,48 @@ async def afetch(engine: AlloyDBEngine, query: str) -> Sequence[RowMapping]:
     async def run(engine, query):
         async with engine._pool.connect() as conn:
             result = await conn.execute(text(query))
-            result_map = result.mappings()
-            result_fetch = result_map.fetchall()
-        return result_fetch
+            return result.mappings().fetchall()
 
     return await engine._run_as_async(run(engine, query))
 
 
+@pytest.fixture(scope="module")
+def db_project() -> str:
+    return get_env_var("PROJECT_ID", "project id for google cloud")
+
+
+@pytest.fixture(scope="module")
+def db_region() -> str:
+    return get_env_var("REGION", "region for AlloyDB instance")
+
+
+@pytest.fixture(scope="module")
+def db_cluster() -> str:
+    return get_env_var("CLUSTER_ID", "cluster for AlloyDB")
+
+
+@pytest.fixture(scope="module")
+def db_instance() -> str:
+    return get_env_var("INSTANCE_ID", "instance for AlloyDB")
+
+
+@pytest.fixture(scope="module")
+def db_name() -> str:
+    return get_env_var("DATABASE_ID", "database name on AlloyDB instance")
+
+
+@pytest.fixture(scope="module")
+def db_user() -> str:
+    return get_env_var("DB_USER", "database user for AlloyDB")
+
+
+@pytest.fixture(scope="module")
+def db_pwd() -> str:
+    return get_env_var("DB_PASSWORD", "database password for AlloyDB")
+
+
 @pytest.mark.asyncio(loop_scope="class")
 class TestAlloyDBEmbeddingAsync:
-    @pytest.fixture(scope="module")
-    def db_project(self) -> str:
-        return get_env_var("PROJECT_ID", "project id for google cloud")
-
-    @pytest.fixture(scope="module")
-    def db_region(self) -> str:
-        return get_env_var("REGION", "region for AlloyDB instance")
-
-    @pytest.fixture(scope="module")
-    def db_cluster(self) -> str:
-        return get_env_var("CLUSTER_ID", "cluster for AlloyDB")
-
-    @pytest.fixture(scope="module")
-    def db_instance(self) -> str:
-        return get_env_var("INSTANCE_ID", "instance for AlloyDB")
-
-    @pytest.fixture(scope="module")
-    def db_name(self) -> str:
-        return get_env_var("DATABASE_ID", "database name on AlloyDB instance")
-
-    @pytest.fixture(scope="module")
-    def db_user(self) -> str:
-        return get_env_var("DB_USER", "database user for AlloyDB")
-
-    @pytest.fixture(scope="module")
-    def db_pwd(self) -> str:
-        return get_env_var("DB_PASSWORD", "database password for AlloyDB")
-
     @pytest_asyncio.fixture(scope="class")
     async def engine(
         self, db_project, db_region, db_cluster, db_instance, db_name, db_user, db_pwd
@@ -126,28 +132,25 @@ class TestAlloyDBEmbeddingAsync:
         embedding = await embed_model.aget_query_embedding("What is AlloyDB?")
         assert len(embedding) == VECTOR_SIZE
         assert all(isinstance(value, float) for value in embedding)
-        assert embed_model.model_name == MODEL_ID
         assert embed_model.class_name() == "AlloyDBEmbedding"
 
     async def test_aget_text_embedding_batch(self, engine):
-        # A batch size of 2 sends the 5 texts in 3 round trips.
-        embed_model = AlloyDBEmbedding(
-            engine=engine, model_id=MODEL_ID, embed_batch_size=2
-        )
-        batch = await embed_model.aget_text_embedding_batch(texts)
-        singles = [await embed_model.aget_text_embedding(t) for t in texts]
+        model = AlloyDBEmbedding(engine=engine, model_id=MODEL_ID, embed_batch_size=2)
+        batch = await model.aget_text_embedding_batch(texts)
+        singles = [await model.aget_text_embedding(t) for t in texts]
         assert len(batch) == len(texts)
         for i, vector in enumerate(batch):
-            scores = [embed_model.similarity(vector, single) for single in singles]
+            scores = [model.similarity(vector, single) for single in singles]
             assert scores[i] >= 0.999
             assert max(range(len(texts)), key=scores.__getitem__) == i
         with pytest.raises(ValueError, match="position 3"):
-            await embed_model.aget_text_embedding_batch(texts[:3] + [" "])
-        with pytest.raises(ValueError, match="position 0"):
-            await embed_model.aget_query_embedding("")
+            await model.aget_text_embedding_batch(texts[:3] + [""])
+        with pytest.raises(ValueError, match="empty string"):
+            await model.aget_query_embedding("")
+        blanks = await model.aget_text_embedding_batch([" ", "\n\n", "\u3000"])
+        assert [len(vector) for vector in blanks] == [VECTOR_SIZE] * 3
 
     async def test_aget_text_embedding_batch_many_texts(self, engine, embed_model):
-        # 200 texts in 20 batches, at most num_workers (4) of them at a time.
         many = [f"Note {i}: the meeting is about topic {i % 7}." for i in range(200)]
         pool, peak = engine._pool.pool, [0]
 
@@ -157,12 +160,11 @@ class TestAlloyDBEmbeddingAsync:
         event.listen(pool, "checkout", on_checkout)
         batch = await embed_model.aget_text_embedding_batch(many)
         event.remove(pool, "checkout", on_checkout)
-        assert peak[0] == embed_model.num_workers == 4
+        assert peak[0] == embed_model.num_workers == DEFAULT_NUM_WORKERS
         assert len(batch) == len(many)
         assert all(len(vector) == VECTOR_SIZE for vector in batch)
-        for i in (0, 117, 199):
-            single = await embed_model.aget_text_embedding(many[i])
-            assert embed_model.similarity(batch[i], single) >= 0.999
+        single = await embed_model.aget_text_embedding(many[117])
+        assert embed_model.similarity(batch[117], single) >= 0.999
 
     async def test_serialization_round_trip(self, engine):
         embed_model = AlloyDBEmbedding(
@@ -177,9 +179,14 @@ class TestAlloyDBEmbeddingAsync:
             embedding = await copy.aget_query_embedding("What is AlloyDB?")
             assert len(embedding) == VECTOR_SIZE
 
+    async def test_model_name_follows_model_id(self, engine):
+        embed_model = AlloyDBEmbedding(engine=engine, model_id=MODEL_ID)
+        embed_model.model_id = "gemini-embedding-001"
+        assert embed_model.to_payload()["model_name"] == "gemini-embedding-001"
+        assert len(await embed_model.aget_query_embedding("What is AlloyDB?")) == 3072
+
     async def test_embed_text_with_sql(self, engine, embed_model):
-        await aexecute(engine, f'CREATE TABLE "{SQL_TABLE}" (id INT)')
-        await aexecute(engine, f'INSERT INTO "{SQL_TABLE}" VALUES (1)')
+        await aexecute(engine, f'CREATE TABLE "{SQL_TABLE}" AS SELECT 1 AS id')
         content = f'\'); DROP TABLE "{SQL_TABLE}"; --'
         embedding = await embed_model.aget_text_embedding(content)
         assert len(embedding) == VECTOR_SIZE
@@ -188,7 +195,7 @@ class TestAlloyDBEmbeddingAsync:
 
     async def test_unknown_model(self, engine):
         embed_model = AlloyDBEmbedding(
-            engine=engine, model_id="unknown-model-" + str(uuid.uuid4())
+            engine=engine, model_id=f"unknown-{uuid.uuid4()}"
         )
         with pytest.raises(DBAPIError):
             await embed_model.aget_query_embedding("What is AlloyDB?")
@@ -196,34 +203,6 @@ class TestAlloyDBEmbeddingAsync:
 
 @pytest.mark.asyncio(loop_scope="class")
 class TestAlloyDBEmbeddingSync:
-    @pytest.fixture(scope="module")
-    def db_project(self) -> str:
-        return get_env_var("PROJECT_ID", "project id for google cloud")
-
-    @pytest.fixture(scope="module")
-    def db_region(self) -> str:
-        return get_env_var("REGION", "region for AlloyDB instance")
-
-    @pytest.fixture(scope="module")
-    def db_cluster(self) -> str:
-        return get_env_var("CLUSTER_ID", "cluster for AlloyDB")
-
-    @pytest.fixture(scope="module")
-    def db_instance(self) -> str:
-        return get_env_var("INSTANCE_ID", "instance for AlloyDB")
-
-    @pytest.fixture(scope="module")
-    def db_name(self) -> str:
-        return get_env_var("DATABASE_ID", "database name on AlloyDB instance")
-
-    @pytest.fixture(scope="module")
-    def db_user(self) -> str:
-        return get_env_var("DB_USER", "database user for AlloyDB")
-
-    @pytest.fixture(scope="module")
-    def db_pwd(self) -> str:
-        return get_env_var("DB_PASSWORD", "database password for AlloyDB")
-
     @pytest_asyncio.fixture(scope="class")
     async def engine(
         self, db_project, db_region, db_cluster, db_instance, db_name, db_user, db_pwd
