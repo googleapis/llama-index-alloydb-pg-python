@@ -177,6 +177,11 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         """
         stmt = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = :table_name AND table_schema = :schema_name"
         params = {"table_name": table_name, "schema_name": schema_name}
+        # regconfig casts accept NULL and numeric OIDs without checking them.
+        if not isinstance(text_search_config, str) or text_search_config.isdigit():
+            raise ValueError(
+                f"Text search config, {text_search_config}, does not exist."
+            )
         async with engine._pool.connect() as conn:
             result = await conn.execute(text(stmt), params)
             result_map = result.mappings()
@@ -700,7 +705,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         # Rows only on a zero-weight side would score 0, so drop them.
         join = "LEFT" if alpha == 1 else "RIGHT" if alpha == 0 else "FULL OUTER"
         return f"""WITH dense AS (
-                SELECT {id_column} AS id, ROW_NUMBER() OVER (ORDER BY {distance}) AS r
+                SELECT {id_column} AS id, ROW_NUMBER() OVER (ORDER BY {distance}, {id_column}) AS r
                 FROM {table} {dense_where} ORDER BY {distance} {dense_limit}
             ), sparse AS (
                 SELECT {id_column} AS id, ROW_NUMBER() OVER (ORDER BY {rank} DESC, {id_column}) AS r
