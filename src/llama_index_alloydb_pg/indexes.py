@@ -40,6 +40,9 @@ DEFAULT_INDEX_NAME_SUFFIX: str = "li_vectorindex"
 
 # ScaNN index modes, from https://cloud.google.com/alloydb/docs/ai/create-scann-index
 _SCANN_MODES = ("AUTO", "MANUAL")
+# Lower bound of the num_leaves partition count, from
+# https://cloud.google.com/alloydb/docs/reference/ai/scann-index-reference
+_MIN_NUM_LEAVES = 1
 # Lower bound of the scann.pct_leaves_to_search percentage, from
 # https://cloud.google.com/alloydb/docs/reference/ai/scann-index-reference
 _MIN_PCT_LEAVES_TO_SEARCH = 0
@@ -181,13 +184,19 @@ class ScaNNIndex(BaseIndex):
             index parameters, so ``num_leaves`` and ``quantizer`` are not sent.
             ``"MANUAL"`` sends ``num_leaves`` and ``quantizer`` explicitly.
             Case-insensitive. Defaults to ``None``, which emits the same index
-            options as previous releases. ``"AUTO"`` needs at least 10,000 rows
-            in the table, otherwise AlloyDB defers the index build. The
+            options as previous releases. ``"AUTO"`` needs a table with at
+            least 10,000 rows. On a smaller table it needs deferred index
+            creation (Preview): turn on the ``scann.enable_index_maintenance``
+            flag and ``scann.enable_index_with_insufficient_data`` or
+            ``scann.enable_preview_features``. AlloyDB then builds the index
+            when the table reaches 10,000 rows. See
+            https://cloud.google.com/alloydb/docs/ai/create-scann-index. The
             ``set_maintenance_work_mem`` sizing is based on ``num_leaves``, so
             it doesn't apply to ``"AUTO"``.
 
     Raises:
-        ValueError: If ``mode`` is not ``"AUTO"`` or ``"MANUAL"``.
+        ValueError: If ``mode`` is not ``"AUTO"`` or ``"MANUAL"``, or if
+            ``num_leaves`` is not an integer of at least 1.
     """
 
     index_type: str = "ScaNN"
@@ -199,6 +208,14 @@ class ScaNNIndex(BaseIndex):
     mode: Optional[str] = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
+        if (
+            isinstance(self.num_leaves, bool)
+            or not isinstance(self.num_leaves, int)
+            or self.num_leaves < _MIN_NUM_LEAVES
+        ):
+            raise ValueError(
+                f"num_leaves must be an integer of at least {_MIN_NUM_LEAVES}."
+            )
         if self.mode is not None:
             if self.mode.upper() not in _SCANN_MODES:
                 raise ValueError(

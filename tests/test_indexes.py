@@ -149,6 +149,15 @@ class TestAlloyDBIndex:
         with pytest.raises(ValueError, match="Invalid mode 'fast'"):
             ScaNNIndex(mode="fast")
 
+        assert ScaNNIndex(num_leaves=1, mode="MANUAL").index_options() == (
+            "(mode = 'MANUAL', num_leaves = 1, quantizer = sq8)"
+        )
+        for num_leaves in (0, -1, True, 2.5, "1) ; --"):
+            with pytest.raises(ValueError, match="num_leaves must be an integer"):
+                ScaNNIndex(num_leaves=num_leaves, mode="MANUAL")
+            with pytest.raises(ValueError, match="num_leaves must be an integer"):
+                ScaNNIndex(num_leaves=num_leaves)
+
     def test_scann_query_options_pct(self):
         options = ScaNNQueryOptions(
             num_leaves_to_search=2,
