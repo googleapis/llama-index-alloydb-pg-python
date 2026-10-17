@@ -14,6 +14,8 @@
 
 import warnings
 
+import pytest
+
 from llama_index_alloydb_pg.indexes import (
     DistanceStrategy,
     HNSWIndex,
@@ -120,3 +122,74 @@ class TestAlloyDBIndex:
             assert "to_string is deprecated, use to_parameter instead." in str(
                 w[-1].message
             )
+
+    def test_scann_index_options_modes(self):
+        # mode=None keeps the options emitted by previous releases.
+        assert ScaNNIndex(num_leaves=10).mode is None
+        assert (
+            ScaNNIndex(num_leaves=10).index_options()
+            == "(num_leaves = 10, quantizer = sq8)"
+        )
+        assert ScaNNIndex(mode="AUTO").index_options() == "(mode = 'AUTO')"
+        assert (
+            ScaNNIndex(num_leaves=10, mode="MANUAL").index_options()
+            == "(mode = 'MANUAL', num_leaves = 10, quantizer = sq8)"
+        )
+        index = ScaNNIndex(mode="auto")
+        assert index.mode == "AUTO"
+        assert index.index_options() == "(mode = 'AUTO')"
+        assert ScaNNIndex(mode="Manual").mode == "MANUAL"
+
+        # Positional arguments keep their meaning.
+        index = ScaNNIndex("test_index", "ScaNN", DistanceStrategy.EUCLIDEAN, None, 7)
+        assert index.num_leaves == 7
+        assert index.distance_strategy == DistanceStrategy.EUCLIDEAN
+        assert index.mode is None
+
+        with pytest.raises(ValueError, match="Invalid mode 'fast'"):
+            ScaNNIndex(mode="fast")
+
+        assert ScaNNIndex(num_leaves=1, mode="MANUAL").index_options() == (
+            "(mode = 'MANUAL', num_leaves = 1, quantizer = sq8)"
+        )
+        for num_leaves in (0, -1, True, 2.5, "1) ; --"):
+            with pytest.raises(ValueError, match="num_leaves must be an integer"):
+                ScaNNIndex(num_leaves=num_leaves, mode="MANUAL")
+            with pytest.raises(ValueError, match="num_leaves must be an integer"):
+                ScaNNIndex(num_leaves=num_leaves)
+
+    def test_scann_query_options_pct(self):
+        options = ScaNNQueryOptions(
+            num_leaves_to_search=2,
+            pre_reordering_num_neighbors=10,
+            pct_leaves_to_search=12.5,
+        )
+        assert options.to_parameter() == [
+            "scann.num_leaves_to_search = 2",
+            "scann.pre_reordering_num_neighbors = 10",
+            "scann.pct_leaves_to_search = 12.5",
+        ]
+        assert ScaNNQueryOptions().to_parameter() == [
+            "scann.num_leaves_to_search = 1",
+            "scann.pre_reordering_num_neighbors = -1",
+        ]
+        assert ScaNNQueryOptions(pct_leaves_to_search=0).to_parameter()[-1] == (
+            "scann.pct_leaves_to_search = 0"
+        )
+        assert ScaNNQueryOptions(pct_leaves_to_search=100).to_parameter()[-1] == (
+            "scann.pct_leaves_to_search = 100"
+        )
+
+        with warnings.catch_warnings(record=True) as w:
+            assert options.to_string() == (
+                "scann.num_leaves_to_search = 2, "
+                "scann.pre_reordering_num_neighbors = 10, "
+                "scann.pct_leaves_to_search = 12.5"
+            )
+            assert len(w) == 1
+
+        for pct in (-1, 100.5):
+            with pytest.raises(
+                ValueError, match="pct_leaves_to_search must be between 0 and 100"
+            ):
+                ScaNNQueryOptions(pct_leaves_to_search=pct)
