@@ -14,6 +14,7 @@
 
 from .chat_store import AlloyDBChatStore
 from .document_store import AlloyDBDocumentStore
+from .embeddings import AlloyDBEmbedding
 from .engine import AlloyDBEngine, Column
 from .index_store import AlloyDBIndexStore
 from .reader import AlloyDBReader
@@ -23,6 +24,7 @@ from .version import __version__
 _all = [
     "AlloyDBChatStore",
     "AlloyDBDocumentStore",
+    "AlloyDBEmbedding",
     "AlloyDBEngine",
     "AlloyDBIndexStore",
     "AlloyDBReader",
