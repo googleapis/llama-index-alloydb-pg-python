@@ -18,7 +18,13 @@ from typing import Sequence
 
 import pytest
 import pytest_asyncio
-from llama_index.core.schema import MetadataMode, NodeRelationship, TextNode
+from llama_index.core import MockEmbedding, VectorStoreIndex
+from llama_index.core.schema import (
+    MetadataMode,
+    NodeRelationship,
+    QueryBundle,
+    TextNode,
+)
 from llama_index.core.vector_stores.types import (
     FilterCondition,
     FilterOperator,
@@ -33,6 +39,7 @@ from llama_index_alloydb_pg import AlloyDBEngine
 from llama_index_alloydb_pg.vector_store import AlloyDBVectorStore
 
 DEFAULT_TABLE = "test_table" + str(uuid.uuid4())
+HYBRID_TABLE = "test_table" + str(uuid.uuid4())
 VECTOR_SIZE = 5
 
 texts = ["foo", "bar", "baz", "foobar", "foobarbaz"]
@@ -52,6 +59,18 @@ nodes = [
 # setting each node as their own parent
 for node in nodes:
     node.relationships[NodeRelationship.SOURCE] = node.as_related_node_info()
+
+# Cosine distances to [1, 0, 0]: b 0, a 0.2, d 0.5, c 1.
+# Text matches for "database": c (twice) ranks above a.
+hybrid_nodes = [
+    TextNode(id_=id_, text=text_, embedding=emb)
+    for id_, text_, emb in [
+        ("a", "postgres database", [0.8, 0.6, 0.0]),
+        ("b", "vector search engine", [1.0, 0.0, 0.0]),
+        ("c", "database database tuning", [0.0, 0.0, 1.0]),
+        ("d", "cooking recipes", [0.5, 0.0, 0.866025]),
+    ]
+]
 
 
 def get_env_var(key: str, desc: str) -> str:
@@ -839,3 +858,32 @@ class TestVectorStoreSync:
 
         results = await afetch(engine, f'SELECT * FROM "{DEFAULT_TABLE}"')
         assert len(results) == 0
+
+    @pytest_asyncio.fixture(scope="class")
+    async def hybrid_vs(self, engine):
+        engine.init_vector_store_table(HYBRID_TABLE, 3, overwrite_existing=True)
+        vs = AlloyDBVectorStore.create_sync(
+            engine, table_name=HYBRID_TABLE, text_search_config="english"
+        )
+        vs.add(hybrid_nodes)
+        yield vs
+        await aexecute(engine, f'DROP TABLE IF EXISTS "{HYBRID_TABLE}"')
+
+    async def test_retriever_hybrid_end_to_end(self, hybrid_vs):
+        # The hybrid query passes its own embedding and text search needs none.
+        index = VectorStoreIndex.from_vector_store(
+            hybrid_vs, embed_model=MockEmbedding(embed_dim=3)
+        )
+        retriever = index.as_retriever(
+            vector_store_query_mode="hybrid", similarity_top_k=4, hybrid_top_k=2
+        )
+        results = retriever.retrieve(
+            QueryBundle(query_str="database", embedding=[1.0, 0.0, 0.0])
+        )
+        assert [r.node.node_id for r in results] == ["a", "c"]
+        assert results[0].score == pytest.approx(1 / 62)
+
+        retriever = index.as_retriever(vector_store_query_mode="text_search")
+        results = await retriever.aretrieve("database")
+        assert [r.node.node_id for r in results] == ["c", "a"]
+        assert results[0].node.get_content() == "database database tuning"
