@@ -32,8 +32,8 @@ from llama_index_alloydb_pg.indexes import (
 
 DEFAULT_TABLE = "test_table" + str(uuid.uuid4()).replace("-", "_")
 DEFAULT_INDEX_NAME = DEFAULT_TABLE + DEFAULT_INDEX_NAME_SUFFIX
-SECOND_INDEX_NAME = "secondindex" + str(uuid.uuid4()).replace("-", "_")
 VECTOR_SIZE = 5
+SECOND_INDEX_NAME = "secondindex" + str(uuid.uuid4()).replace("-", "_")
 
 texts = ["foo", "bar", "baz", "foobar"]
 ids = [str(uuid.uuid4()) for i in range(len(texts))]

@@ -37,8 +37,8 @@ DEFAULT_TABLE = "test_table" + str(uuid.uuid4()).replace("-", "_")
 DEFAULT_TABLE_ASYNC = "test_table" + str(uuid.uuid4()).replace("-", "_")
 DEFAULT_INDEX_NAME = DEFAULT_TABLE + DEFAULT_INDEX_NAME_SUFFIX
 DEFAULT_INDEX_NAME_ASYNC = DEFAULT_TABLE_ASYNC + DEFAULT_INDEX_NAME_SUFFIX
-SECOND_INDEX_NAME = "secondindex" + str(uuid.uuid4()).replace("-", "_")
 VECTOR_SIZE = 5
+SECOND_INDEX_NAME = "secondindex" + str(uuid.uuid4()).replace("-", "_")
 
 
 texts = ["foo", "bar", "baz", "foobar", "foobaz"]
