@@ -192,6 +192,20 @@ Use an index store to keep track of indexes built on documents.
    )
 
 
+ToolSpec Usage
+~~~~~~~~~~~~~~
+
+Use a tool spec to give an agent AlloyDB AI functions. See the `AI tools sample <https://github.com/googleapis/llama-index-alloydb-pg-python/tree/main/samples/llama_index_ai_tools.ipynb>`_.
+
+.. code-block:: python
+
+   from llama_index_alloydb_pg import AlloyDBEngine, AlloyDBToolSpec
+   engine = await AlloyDBEngine.afrom_instance(
+      "project-id", "region", "my-cluster", "my-instance", "my-database"
+   )
+   tools = AlloyDBToolSpec(engine).to_tool_list()
+
+
 Contributions
 ~~~~~~~~~~~~~
 
