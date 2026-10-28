@@ -38,6 +38,7 @@ DEFAULT_TABLE_ASYNC = "test_table" + str(uuid.uuid4()).replace("-", "_")
 DEFAULT_INDEX_NAME = DEFAULT_TABLE + DEFAULT_INDEX_NAME_SUFFIX
 DEFAULT_INDEX_NAME_ASYNC = DEFAULT_TABLE_ASYNC + DEFAULT_INDEX_NAME_SUFFIX
 VECTOR_SIZE = 5
+SECOND_INDEX_NAME = "secondindex" + str(uuid.uuid4()).replace("-", "_")
 
 
 texts = ["foo", "bar", "baz", "foobar", "foobaz"]
@@ -195,12 +196,12 @@ class TestIndexSync:
         vs.apply_vector_index(index, concurrently=True)
         assert vs.is_valid_index(DEFAULT_INDEX_NAME)
         index = IVFFlatIndex(
-            name="secondindex",
+            name=SECOND_INDEX_NAME,
             distance_strategy=DistanceStrategy.INNER_PRODUCT,
         )
         vs.apply_vector_index(index)
-        assert vs.is_valid_index("secondindex")
-        vs.drop_vector_index("secondindex")
+        assert vs.is_valid_index(SECOND_INDEX_NAME)
+        vs.drop_vector_index(SECOND_INDEX_NAME)
         vs.drop_vector_index(DEFAULT_INDEX_NAME)
 
     async def test_apply_vector_index_scann(self, vs):
@@ -209,12 +210,12 @@ class TestIndexSync:
         vs.apply_vector_index(index, concurrently=True)
         assert vs.is_valid_index(DEFAULT_INDEX_NAME)
         index = ScaNNIndex(
-            name="secondindex",
+            name=SECOND_INDEX_NAME,
             distance_strategy=DistanceStrategy.COSINE_DISTANCE,
         )
         vs.apply_vector_index(index)
-        assert vs.is_valid_index("secondindex")
-        vs.drop_vector_index("secondindex")
+        assert vs.is_valid_index(SECOND_INDEX_NAME)
+        vs.drop_vector_index(SECOND_INDEX_NAME)
         vs.drop_vector_index(DEFAULT_INDEX_NAME)
 
     async def test_is_valid_index(self, vs):
@@ -227,12 +228,12 @@ class TestIndexSync:
         await vs.aapply_vector_index(index, concurrently=True)
         assert await vs.ais_valid_index(DEFAULT_INDEX_NAME)
         index = ScaNNIndex(
-            name="secondindex",
+            name=SECOND_INDEX_NAME,
             distance_strategy=DistanceStrategy.COSINE_DISTANCE,
         )
         await vs.aapply_vector_index(index)
-        assert await vs.ais_valid_index("secondindex")
-        await vs.adrop_vector_index("secondindex")
+        assert await vs.ais_valid_index(SECOND_INDEX_NAME)
+        await vs.adrop_vector_index(SECOND_INDEX_NAME)
         await vs.adrop_vector_index()
 
     async def test_apply_vector_index_scann_omni(self, omni_vs):
@@ -241,12 +242,12 @@ class TestIndexSync:
         omni_vs.apply_vector_index(index, concurrently=True)
         assert omni_vs.is_valid_index(DEFAULT_INDEX_NAME)
         index = ScaNNIndex(
-            name="secondindex",
+            name=SECOND_INDEX_NAME,
             distance_strategy=DistanceStrategy.COSINE_DISTANCE,
         )
         omni_vs.apply_vector_index(index)
-        assert omni_vs.is_valid_index("secondindex")
-        omni_vs.drop_vector_index("secondindex")
+        assert omni_vs.is_valid_index(SECOND_INDEX_NAME)
+        omni_vs.drop_vector_index(SECOND_INDEX_NAME)
         omni_vs.drop_vector_index()
 
 
@@ -372,12 +373,12 @@ class TestAsyncIndex:
         await vs.aapply_vector_index(index, concurrently=True)
         assert await vs.ais_valid_index(DEFAULT_INDEX_NAME_ASYNC)
         index = IVFFlatIndex(
-            name="secondindex",
+            name=SECOND_INDEX_NAME,
             distance_strategy=DistanceStrategy.INNER_PRODUCT,
         )
         await vs.aapply_vector_index(index)
-        assert await vs.ais_valid_index("secondindex")
-        await vs.adrop_vector_index("secondindex")
+        assert await vs.ais_valid_index(SECOND_INDEX_NAME)
+        await vs.adrop_vector_index(SECOND_INDEX_NAME)
         await vs.adrop_vector_index()
 
     async def test_is_valid_index(self, vs):
@@ -389,12 +390,12 @@ class TestAsyncIndex:
         await vs.aapply_vector_index(index, concurrently=True)
         assert await vs.ais_valid_index(DEFAULT_INDEX_NAME_ASYNC)
         index = IVFIndex(
-            name="secondindex",
+            name=SECOND_INDEX_NAME,
             distance_strategy=DistanceStrategy.INNER_PRODUCT,
         )
         await vs.aapply_vector_index(index)
-        assert await vs.ais_valid_index("secondindex")
-        await vs.adrop_vector_index("secondindex")
+        assert await vs.ais_valid_index(SECOND_INDEX_NAME)
+        await vs.adrop_vector_index(SECOND_INDEX_NAME)
         await vs.adrop_vector_index()
 
     async def test_aapply_vector_index_scann_omni(self, omni_vs):
@@ -403,12 +404,12 @@ class TestAsyncIndex:
         await omni_vs.aapply_vector_index(index, concurrently=True)
         assert await omni_vs.ais_valid_index(DEFAULT_INDEX_NAME_ASYNC)
         index = ScaNNIndex(
-            name="secondindex",
+            name=SECOND_INDEX_NAME,
             distance_strategy=DistanceStrategy.COSINE_DISTANCE,
         )
         await omni_vs.aapply_vector_index(index)
-        assert await omni_vs.ais_valid_index("secondindex")
-        await omni_vs.adrop_vector_index("secondindex")
+        assert await omni_vs.ais_valid_index(SECOND_INDEX_NAME)
+        await omni_vs.adrop_vector_index(SECOND_INDEX_NAME)
         await omni_vs.adrop_vector_index()
 
     async def test_apply_vector_index_scann(self, vs):
@@ -417,10 +418,10 @@ class TestAsyncIndex:
         vs.apply_vector_index(index, concurrently=True)
         assert vs.is_valid_index(DEFAULT_INDEX_NAME_ASYNC)
         index = ScaNNIndex(
-            name="secondindex",
+            name=SECOND_INDEX_NAME,
             distance_strategy=DistanceStrategy.COSINE_DISTANCE,
         )
         vs.apply_vector_index(index)
-        assert vs.is_valid_index("secondindex")
-        vs.drop_vector_index("secondindex")
+        assert vs.is_valid_index(SECOND_INDEX_NAME)
+        vs.drop_vector_index(SECOND_INDEX_NAME)
         vs.drop_vector_index()
