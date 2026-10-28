@@ -705,7 +705,7 @@ class AsyncAlloyDBVectorStore(BasePydanticVectorStore):
         # Rows only on a zero-weight side would score 0, so drop them.
         join = "LEFT" if alpha == 1 else "RIGHT" if alpha == 0 else "FULL OUTER"
         # Limit in a subquery first, so the vector index can serve ORDER BY ... LIMIT
-        # on PG 16 and earlier; ROW_NUMBER() over the whole table would sort every row.
+        # on PG 16 and earlier. ROW_NUMBER() over the whole table would sort every row.
         return f"""WITH dense AS (
                 SELECT id, ROW_NUMBER() OVER (ORDER BY d, id) AS r FROM (
                     SELECT {id_column} AS id, {distance} AS d
