@@ -32,6 +32,7 @@ from llama_index_alloydb_pg.indexes import (
 
 DEFAULT_TABLE = "test_table" + str(uuid.uuid4()).replace("-", "_")
 DEFAULT_INDEX_NAME = DEFAULT_TABLE + DEFAULT_INDEX_NAME_SUFFIX
+SECOND_INDEX_NAME = "secondindex" + str(uuid.uuid4()).replace("-", "_")
 VECTOR_SIZE = 5
 
 texts = ["foo", "bar", "baz", "foobar"]
@@ -144,13 +145,13 @@ class TestIndex:
         await vs.aapply_vector_index(index, concurrently=True)
         assert await vs.is_valid_index(DEFAULT_INDEX_NAME)
         index = IVFFlatIndex(
-            name="secondindex",
+            name=SECOND_INDEX_NAME,
             distance_strategy=DistanceStrategy.INNER_PRODUCT,
         )
         await vs.aapply_vector_index(index)
-        assert await vs.is_valid_index("secondindex")
+        assert await vs.is_valid_index(SECOND_INDEX_NAME)
         await vs.adrop_vector_index()
-        await vs.adrop_vector_index("secondindex")
+        await vs.adrop_vector_index(SECOND_INDEX_NAME)
 
     async def test_is_valid_index(self, vs):
         is_valid = await vs.is_valid_index("invalid_index")
