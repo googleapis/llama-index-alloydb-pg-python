@@ -148,7 +148,11 @@ class AlloyDBRerank(BaseNodePostprocessor):
     def __start(
         self, nodes: List[NodeWithScore], query_bundle: Optional[QueryBundle]
     ) -> Tuple[str, List[NodeWithScore]]:
-        """Skip nodes without text, emit the start event, validate the query."""
+        """Validate the query, skip nodes without text, emit the start event."""
+        if query_bundle is None:
+            raise ValueError("Missing query bundle in extra info.")
+        if not query_bundle.query_str.strip():
+            raise ValueError("Query string cannot be empty or whitespace.")
         # google_ml.rank fails on empty documents and ranks blank ones, so skip them.
         nodes = [n for n in nodes if _has_text(n)]
         dispatcher.event(
@@ -159,10 +163,6 @@ class AlloyDBRerank(BaseNodePostprocessor):
                 model_name=self.model_id,
             )
         )
-        if query_bundle is None:
-            raise ValueError("Missing query bundle in extra info.")
-        if not query_bundle.query_str.strip():
-            raise ValueError("Query string cannot be empty or whitespace.")
         return query_bundle.query_str, nodes
 
     def __payload(self, nodes: List[NodeWithScore], query: str) -> dict[str, Any]:
