@@ -24,7 +24,7 @@ from llama_index.core.vector_stores.types import (
     VectorStoreQueryResult,
 )
 
-from .async_vector_store import AsyncAlloyDBVectorStore
+from .async_vector_store import DEFAULT_TEXT_SEARCH_CONFIG, AsyncAlloyDBVectorStore
 from .engine import AlloyDBEngine
 from .indexes import (
     DEFAULT_DISTANCE_STRATEGY,
@@ -86,6 +86,9 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
         is_embedding_query: bool = True,
         distance_strategy: DistanceStrategy = DEFAULT_DISTANCE_STRATEGY,
         index_query_options: Optional[QueryOptions] = None,
+        *,
+        hybrid_search_column: Optional[str] = None,
+        text_search_config: str = DEFAULT_TEXT_SEARCH_CONFIG,
     ) -> AlloyDBVectorStore:
         """Create an AlloyDBVectorStore instance and validates the table schema.
 
@@ -104,9 +107,12 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
             is_embedding_query (bool): Whether the table query can have embeddings. Defaults to "True".
             distance_strategy (DistanceStrategy): Distance strategy to use for vector similarity search. Defaults to COSINE_DISTANCE.
             index_query_options (QueryOptions): Index query option.
+            hybrid_search_column (Optional[str]): Precomputed tsvector column used for text search and hybrid queries. Defaults to None, which computes to_tsvector over the text column at query time. That scans every row and fails for a row whose tsvector exceeds 1 MB, so a generated tsvector column with a GIN index is recommended.
+            text_search_config (str): Postgres text search configuration used for text search and hybrid queries. With hybrid_search_column it only parses query_str and must match the column's configuration. Defaults to "english".
 
         Raises:
             Exception: If table does not exist or follow the provided structure.
+            ValueError: If text_search_config is not a text search configuration.
 
         Returns:
             AlloyDBVectorStore
@@ -126,6 +132,8 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
             is_embedding_query=is_embedding_query,
             distance_strategy=distance_strategy,
             index_query_options=index_query_options,
+            hybrid_search_column=hybrid_search_column,
+            text_search_config=text_search_config,
         )
         vs = await engine._run_as_async(coro)
         return cls(
@@ -153,6 +161,9 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
         is_embedding_query: bool = True,
         distance_strategy: DistanceStrategy = DEFAULT_DISTANCE_STRATEGY,
         index_query_options: Optional[QueryOptions] = None,
+        *,
+        hybrid_search_column: Optional[str] = None,
+        text_search_config: str = DEFAULT_TEXT_SEARCH_CONFIG,
     ) -> AlloyDBVectorStore:
         """Create an AlloyDBVectorStore instance and validates the table schema.
 
@@ -171,9 +182,12 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
             is_embedding_query (bool): Whether the table query can have embeddings. Defaults to "True".
             distance_strategy (DistanceStrategy): Distance strategy to use for vector similarity search. Defaults to COSINE_DISTANCE.
             index_query_options (QueryOptions): Index query option.
+            hybrid_search_column (Optional[str]): Precomputed tsvector column used for text search and hybrid queries. Defaults to None, which computes to_tsvector over the text column at query time. That scans every row and fails for a row whose tsvector exceeds 1 MB, so a generated tsvector column with a GIN index is recommended.
+            text_search_config (str): Postgres text search configuration used for text search and hybrid queries. With hybrid_search_column it only parses query_str and must match the column's configuration. Defaults to "english".
 
         Raises:
             Exception: If table does not exist or follow the provided structure.
+            ValueError: If text_search_config is not a text search configuration.
 
         Returns:
             AlloyDBVectorStore
@@ -193,6 +207,8 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
             is_embedding_query=is_embedding_query,
             distance_strategy=distance_strategy,
             index_query_options=index_query_options,
+            hybrid_search_column=hybrid_search_column,
+            text_search_config=text_search_config,
         )
         vs = engine._run_as_sync(coro)
         return cls(
@@ -277,11 +293,40 @@ class AlloyDBVectorStore(BasePydanticVectorStore):
     async def aquery(
         self, query: VectorStoreQuery, **kwargs: Any
     ) -> VectorStoreQueryResult:
-        """Asynchronously query vector store."""
+        """Asynchronously query vector store, see ``query`` for the query modes."""
         return await self._engine._run_as_async(self.__vs.aquery(query, **kwargs))
 
     def query(self, query: VectorStoreQuery, **kwargs: Any) -> VectorStoreQueryResult:
-        """Synchronously query vector store."""
+        """Synchronously query vector store.
+
+        The query mode selects the search:
+
+        * ``DEFAULT``: vector similarity search. Similarities are the distances
+          returned by the distance strategy.
+        * ``TEXT_SEARCH`` and ``SPARSE``: full-text search on ``query_str``, limited
+          to ``sparse_top_k`` (or ``similarity_top_k``). Similarities are ``ts_rank``
+          scores, higher is better.
+        * ``HYBRID``: fuses the vector and full-text rankings with weighted
+          reciprocal rank fusion, ``alpha / (60 + dense_rank) + (1 - alpha) / (60 + text_rank)``.
+          ``alpha`` defaults to 0.5, and at 1 or 0 only rows from the weighted side
+          are returned. Each side keeps its ``similarity_top_k`` and ``sparse_top_k``
+          best rows and the result is limited to ``hybrid_top_k`` (or ``similarity_top_k``).
+          Similarities are the fused scores, higher is better.
+
+        Any other mode runs the ``DEFAULT`` search. Without ``hybrid_search_column``,
+        text search runs ``to_tsvector`` over every row (see ``create``).
+
+        Args:
+            query (VectorStoreQuery): The query to run.
+
+        Returns:
+            VectorStoreQueryResult: The matching nodes, ids and similarities.
+
+        Raises:
+            ValueError: If ``query_str`` is blank for a text search or hybrid query,
+                ``query_embedding`` is missing for a hybrid query, or ``alpha`` is
+                not between 0 and 1.
+        """
         return self._engine._run_as_sync(self.__vs.aquery(query, **kwargs))
 
     async def aset_maintenance_work_mem(
