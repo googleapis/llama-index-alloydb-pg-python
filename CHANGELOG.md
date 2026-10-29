@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.0](https://github.com/googleapis/llama-index-alloydb-pg-python/compare/v0.3.1...v0.4.0) (2026-10-29)
+
+
+### Features
+
+* Add AlloyDBEmbedding for in-database embeddings ([#245](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/245)) ([459e0cd](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/459e0cd6e7db44ef81c51cf0633422ab25c69f9e))
+* Add AlloyDBModelManager for model endpoint management ([#248](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/248)) ([dc5e66e](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/dc5e66ed0595bb1f8ca68efb3dcaef5fcf79481d))
+* Add AlloyDBRerank node postprocessor ([#246](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/246)) ([f5bb2d1](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/f5bb2d1b9036bea304798295b2d0f55275921f00))
+* Add AlloyDBToolSpec for AlloyDB AI functions ([#247](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/247)) ([d2799fd](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/d2799fd72bfa9578d02ad2965ef6aec6d418bc4d))
+* Add ScaNN AUTO mode and pct_leaves_to_search options ([#243](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/243)) ([e64338a](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/e64338acc0cdb403709fdf4380fe981a373033cd))
+* Support text search and hybrid query modes in vector store ([#244](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/244)) ([0a578ca](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/0a578ca235343ba657155a12c541ab62b1aadbee))
+
+
+### Bug Fixes
+
+* Parameterize SQL query values and metadata filter keys across stores ([#241](https://github.com/googleapis/llama-index-alloydb-pg-python/issues/241)) ([27e8b53](https://github.com/googleapis/llama-index-alloydb-pg-python/commit/27e8b53d034c232b3747ec1902a73254da3ed5c9))
+
 ## [0.3.1](https://github.com/googleapis/llama-index-alloydb-pg-python/compare/v0.3.0...v0.3.1) (2026-08-04)
 
 
